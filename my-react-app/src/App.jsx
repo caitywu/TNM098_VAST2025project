@@ -3,6 +3,7 @@ import reactLogo from './assets/react.svg'
 import viteLogo from '/vite.svg'
 import './App.css'
 import FetchData from './fetchdata.jsx' // Importera din komponent
+import NetworkGraph from './NetworkGraph.jsx' // Importera din komponent
 
 function App() {
   const [count, setCount] = useState(0)
@@ -10,6 +11,7 @@ function App() {
   return (
     <>
       <h1>Vite + React</h1>
+      <NetworkGraph />
       <div className="card">
         <button onClick={() => setCount((count) => count + 1)}>
           count is {count}
