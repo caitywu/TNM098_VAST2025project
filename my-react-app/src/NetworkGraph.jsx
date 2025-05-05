@@ -1,116 +1,190 @@
 import React, { useEffect, useRef, useState } from 'react'
 import * as d3 from 'd3'
 
-const TARGET_NAME = "Sailor Shift" // Change this to any artist name
-
 function NetworkGraph() {
   const svgRef = useRef()
+  const simulationRef = useRef(null)
+
+  const [data, setData] = useState(null)
+  const [artistOptions, setArtistOptions] = useState([])
+  const [selectedArtistIds, setSelectedArtistIds] = useState([])
   const [graph, setGraph] = useState({ nodes: [], links: [] })
 
+  // 1) LOAD + NORMALIZE
   useEffect(() => {
     fetch('/MC1_graph.json')
       .then(res => res.json())
-      .then(data => {
-        const centerNode = data.nodes.find(n => n.name === TARGET_NAME || n.stage_name === TARGET_NAME)
+      .then(raw => {
+        // Convert every node.id, link.source, link.target to string
+        const nodes = raw.nodes.map(n => ({ ...n, id: String(n.id) }))
+        const links = raw.links.map(l => ({
+          ...l,
+          source: String(l.source),
+          target: String(l.target),
+        }))
 
-        if (!centerNode) {
-          console.error("Target not found")
-          return
+        setData({ nodes, links })
+
+        // build person list
+        const persons = nodes.filter(n => n["Node Type"] === "Person")
+        setArtistOptions(persons)
+
+        // auto-select first person
+        if (persons.length) {
+          setSelectedArtistIds([ persons[0].id ])
         }
-
-        // Get direct edges and connected nodes
-        const connectedLinks = data.links.filter(l => l.source === centerNode.id || l.target === centerNode.id)
-        const connectedNodeIds = new Set([centerNode.id])
-
-        connectedLinks.forEach(link => {
-          connectedNodeIds.add(link.source)
-          connectedNodeIds.add(link.target)
-        })
-
-        const filteredNodes = data.nodes.filter(n => connectedNodeIds.has(n.id))
-        setGraph({ nodes: filteredNodes, links: connectedLinks })
       })
   }, [])
 
+  // 2) BUILD SUBGRAPH whenever selection changes
   useEffect(() => {
+    if (!data || selectedArtistIds.length === 0) {
+      console.log("no data or no selection")
+      return
+    }
+
+    console.log("BUILD for:", selectedArtistIds)
+
+    // keep any link where source or target is in selectedArtistIds
+    const links = data.links.filter(
+      l => selectedArtistIds.includes(l.source)
+        || selectedArtistIds.includes(l.target)
+    )
+
+    // collect node IDs
+    const nodeSet = new Set()
+    links.forEach(l => {
+      nodeSet.add(l.source)
+      nodeSet.add(l.target)
+    })
+
+    const nodes = data.nodes.filter(n => nodeSet.has(n.id))
+
+    console.log(" → nodes:", nodes.length, "links:", links.length)
+    setGraph({ nodes, links })
+  }, [data, selectedArtistIds])
+
+  // 3) D3 DRAW + RESTART on every graph change
+  useEffect(() => {
+    if (!graph.nodes.length || !graph.links.length) return
+
+    // clear
     const svg = d3.select(svgRef.current)
-    svg.selectAll("*").remove()
+    svg.selectAll('*').remove()
 
-    const width = 600, height = 600
-    svg.attr("viewBox", [0, 0, width, height])
+    const width = 1000, height = 700
+    svg.attr('viewBox', [0,0,width,height])
 
-    const simulation = d3.forceSimulation(graph.nodes)
-      .force("link", d3.forceLink(graph.links).id(d => d.id).distance(100))
-      .force("charge", d3.forceManyBody().strength(-200))
-      .force("center", d3.forceCenter(width / 2, height / 2))
-      .on("tick", ticked)
+    // stop old sim
+    if (simulationRef.current) simulationRef.current.stop()
 
-    const link = svg.append("g")
-      .selectAll("line")
-      .data(graph.links)
-      .join("line")
-      .attr("stroke", "#999")
-      .attr("stroke-opacity", 0.6)
-      .attr("stroke-width", 1.5)
+    // resolve links → node objects
+    const resolvedLinks = graph.links.map(l => ({
+      ...l,
+      source: graph.nodes.find(n => n.id === l.source),
+      target: graph.nodes.find(n => n.id === l.target),
+    }))
 
-    const node = svg.append("g")
-      .selectAll("circle")
-      .data(graph.nodes)
-      .join("circle")
-      .attr("r", 6)
-      .attr("fill", d => d.name === TARGET_NAME || d.stage_name === TARGET_NAME ? "#e74c3c" : "#3498db")
-      .call(drag(simulation))
+    // new simulation
+    const sim = d3.forceSimulation(graph.nodes)
+      .force('link',
+        d3.forceLink(resolvedLinks)
+          .id(d => d.id)
+          .distance(150)
+      )
+      .force('charge', d3.forceManyBody().strength(-300))
+      .force('center', d3.forceCenter(width/2, height/2))
+      .on('tick', ticked)
 
-    const label = svg.append("g")
-      .selectAll("text")
-      .data(graph.nodes)
-      .join("text")
+    simulationRef.current = sim
+
+    const link = svg.append('g')
+      .attr('stroke','#aaa')
+      .selectAll('line')
+      .data(resolvedLinks, d => `${d.source.id}-${d.target.id}`)
+      .join('line')
+      .attr('stroke-width',1.5)
+
+    const node = svg.append('g')
+      .attr('stroke','#fff').attr('stroke-width',1.5)
+      .selectAll('circle')
+      .data(graph.nodes, d => d.id)
+      .join('circle')
+      .attr('r',8)
+      .attr('fill', d =>
+        selectedArtistIds.includes(d.id) ? '#e74c3c' : '#3498db'
+      )
+      .call(drag(sim))
+
+    const label = svg.append('g')
+      .selectAll('text')
+      .data(graph.nodes, d => d.id)
+      .join('text')
       .text(d => d.name || d.stage_name || d.id)
-      .attr("font-size", 10)
-      .attr("dx", 8)
-      .attr("dy", "0.35em")
+      .attr('font-size',10)
+      .attr('dx',10)
+      .attr('dy',3)
 
     function ticked() {
       link
-        .attr("x1", d => d.source.x)
-        .attr("y1", d => d.source.y)
-        .attr("x2", d => d.target.x)
-        .attr("y2", d => d.target.y)
+        .attr('x1', d=>d.source.x)
+        .attr('y1', d=>d.source.y)
+        .attr('x2', d=>d.target.x)
+        .attr('y2', d=>d.target.y)
 
       node
-        .attr("cx", d => d.x)
-        .attr("cy", d => d.y)
+        .attr('cx', d=>d.x)
+        .attr('cy', d=>d.y)
 
       label
-        .attr("x", d => d.x)
-        .attr("y", d => d.y)
+        .attr('x', d=>d.x)
+        .attr('y', d=>d.y)
     }
 
-    function drag(simulation) {
+    function drag(sim) {
       return d3.drag()
-        .on("start", event => {
-          if (!event.active) simulation.alphaTarget(0.3).restart()
-          event.subject.fx = event.subject.x
-          event.subject.fy = event.subject.y
+        .on('start', e => {
+          if (!e.active) sim.alphaTarget(0.3).restart()
+          e.subject.fx = e.subject.x
+          e.subject.fy = e.subject.y
         })
-        .on("drag", event => {
-          event.subject.fx = event.x
-          event.subject.fy = event.y
+        .on('drag', e => {
+          e.subject.fx = e.x
+          e.subject.fy = e.y
         })
-        .on("end", event => {
-          if (!event.active) simulation.alphaTarget(0)
-          event.subject.fx = null
-          event.subject.fy = null
+        .on('end', e => {
+          if (!e.active) sim.alphaTarget(0)
+          e.subject.fx = null
+          e.subject.fy = null
         })
     }
 
-    return () => simulation.stop()
-  }, [graph])
+    return () => sim.stop()
+  }, [graph, selectedArtistIds])
 
   return (
     <div>
-      <h2>Network: {TARGET_NAME}</h2>
-      <svg ref={svgRef} width={600} height={600}></svg>
+      <h2>Multi-Artist Network</h2>
+      <label>Select Artists:</label><br/>
+      <select
+        multiple
+        value={selectedArtistIds}
+        onChange={e => {
+          const vals = Array.from(
+            e.target.selectedOptions, o => o.value
+          )
+          setSelectedArtistIds(vals)
+        }}
+        style={{ width:300, height:200 }}
+      >
+        {artistOptions.map(n => (
+          <option key={n.id} value={n.id}>
+            {n.name || n.stage_name || n.id}
+          </option>
+        ))}
+      </select>
+
+      <svg ref={svgRef} width={1000} height={700}/>
     </div>
   )
 }
