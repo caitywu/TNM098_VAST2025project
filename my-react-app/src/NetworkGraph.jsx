@@ -10,6 +10,8 @@ function NetworkGraph() {
   const [selectedArtistIds, setSelectedArtistIds] = useState([])
   const [graph, setGraph] = useState({ nodes: [], links: [] })
   const [selectedNode, setSelectedNode] = useState(null)
+  const INFO_FIELDS = ["Node Type","name","stage_name","genre","id"]  // what to show on the selected node
+
 
   // 1) LOAD + NORMALIZE + SORT
   useEffect(() => {
@@ -211,21 +213,61 @@ function NetworkGraph() {
       </div>
 
       <svg ref={svgRef} width={1000} height={700} />
+      
 
       {selectedNode && (
-        <div style={{ maxWidth: 300, padding: '0.5rem', border: '1px solid #ccc' }}>
-          <h3>Node Info</h3>
-          <ul style={{ listStyle: 'none', padding: 0 }}>
-            {Object.entries(selectedNode).map(([key, value]) => (
-              <li key={key}>
-                <strong>{key}:</strong> {String(value)}
-              </li>
-            ))}
-          </ul>
-        </div>
+  <div style={{
+    maxWidth: 300,
+    padding: '0.5rem',
+    border: '1px solid #333',
+    background: '#333',   // ← darker grey
+    color:    '#fff',      // ← white text
+    borderRadius: '4px'
+    }}
+  >
+    {/* 1) Show the node’s display name as the heading */}
+    <h3 style={{ marginTop: 0 }}>
+      {selectedNode.name
+        || selectedNode.stage_name
+        || selectedNode.id}
+    </h3>
+
+    <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+      {/* 2) “Node Type” → “Type” */}
+      <li>
+        <strong>Type:</strong> {selectedNode["Node Type"]}
+      </li>
+
+      {/* 3) Only show stage_name if it exists */}
+      {selectedNode.stage_name && (
+        <li>
+          <strong>Stage Name:</strong> {selectedNode.stage_name}
+        </li>
       )}
+
+      {/* 4) Only show genre if it exists */}
+      {selectedNode.genre && (
+        <li>
+          <strong>Genre:</strong> {selectedNode.genre}
+        </li>
+      )}
+
+      {/* 5) Always show the ID */}
+      <li>
+        <strong>ID:</strong> {selectedNode.id}
+      </li>
+
+      {/* 6) If you have album/song fields you care about, add them likewise:
+      {selectedNode.release_date && (
+        <li>
+          <strong>Released:</strong> {selectedNode.release_date}
+        </li>
+      )} */}
+    </ul>
+  </div>
+)}
     </div>
   )
-}
+} 
 
 export default NetworkGraph
