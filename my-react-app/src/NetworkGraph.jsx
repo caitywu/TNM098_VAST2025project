@@ -1,273 +1,131 @@
-import React, { useEffect, useRef, useState } from 'react'
-import * as d3 from 'd3'
+import React, { useEffect, useState } from 'react'
+import ArtistSelector from './ArtistSelector'
+import Graph           from './Graph'
+import CombinedInfo from './CombinedInfo'
+import TimeSeriesChart from './TimeSeriesChart'
 
-function NetworkGraph() {
-  const svgRef = useRef()
-  const simulationRef = useRef(null)
-
-  const [data, setData] = useState(null)
-  const [artistOptions, setArtistOptions] = useState([])
-  const [selectedArtistIds, setSelectedArtistIds] = useState([])
-  const [graph, setGraph] = useState({ nodes: [], links: [] })
+export default function NetworkGraph() {
+  const [data, setData]               = useState(null)
+  const [artists, setArtists]         = useState([])
+  const [selectedArtistIds, setIds]   = useState([])
+  const [graph, setGraph]             = useState({ nodes:[], links:[] })
   const [selectedNode, setSelectedNode] = useState(null)
-  const INFO_FIELDS = ["Node Type","name","stage_name","genre","id"]  // what to show on the selected node
 
-
-  // 1) LOAD + NORMALIZE + SORT
+  // load & normalize
   useEffect(() => {
-    fetch('/MC1_graph.json')
-      .then(res => res.json())
-      .then(raw => {
-        const nodes = raw.nodes.map(n => ({ ...n, id: String(n.id) }))
-        const links = raw.links.map(l => ({
-          ...l,
-          source: String(l.source),
-          target: String(l.target),
-        }))
+    fetch('/MC1_graph.json').then(r=>r.json()).then(raw=> {
+      const nodes = raw.nodes.map(n=>({...n, id:String(n.id)}))
+      const links = raw.links.map(l=>({
+        ...l,
+        source: String(l.source),
+        target: String(l.target)
+      }))
+      const persons = nodes
+        .filter(n=>n["Node Type"]==="Person")
+        .sort((a,b)=>
+          (a.name||a.stage_name||"")
+            .localeCompare(b.name||b.stage_name||"", undefined, {sensitivity:'base'})
+        )
+      setData({nodes,links})
+      setArtists(persons)
+      if(persons.length) setIds([persons[0].id])
+    })
+  },[])
 
-        const persons = nodes
-          .filter(n => n["Node Type"] === "Person")
-          .sort((a, b) =>
-            (a.name || a.stage_name || "")
-              .localeCompare(b.name || b.stage_name || "", undefined, { sensitivity: 'base' })
-          )
-
-        setData({ nodes, links })
-        setArtistOptions(persons)
-        if (persons.length) setSelectedArtistIds([persons[0].id])
-      })
-  }, [])
-
-  // 2) BUILD 2-HOP SUBGRAPH (no longer clears selectedNode here!)
+  // build 2-hop
   useEffect(() => {
-    if (!data || selectedArtistIds.length === 0) return
-
-    const directLinks = data.links.filter(
-      l => selectedArtistIds.includes(l.source) ||
-           selectedArtistIds.includes(l.target)
+    if (!data||!selectedArtistIds.length) return
+    const {nodes,links} = data
+    const d1 = links.filter(l=>
+      selectedArtistIds.includes(l.source)||
+      selectedArtistIds.includes(l.target)
     )
-    const oneHop = new Set()
-    directLinks.forEach(l => {
-      oneHop.add(l.source)
-      oneHop.add(l.target)
-    })
-
-    const secondLinks = data.links.filter(
-      l => oneHop.has(l.source) || oneHop.has(l.target)
+    const hop1 = new Set(d1.flatMap(l=>[l.source,l.target]))
+    const d2 = links.filter(l=>
+      hop1.has(l.source)||hop1.has(l.target)
     )
-
-    const linkMap = new Map()
-    ;[...directLinks, ...secondLinks].forEach(l => {
-      const key = `${l.source}--${l.target}--${l["Edge Type"]}`
-      linkMap.set(key, l)
-    })
-    const links = Array.from(linkMap.values())
-
-    const nodeSet = new Set()
-    links.forEach(l => {
-      nodeSet.add(l.source)
-      nodeSet.add(l.target)
-    })
-    const nodes = data.nodes.filter(n => nodeSet.has(n.id))
-
-    setGraph({ nodes, links })
-    // ← removed: setSelectedNode(null)
+    const all = [...d1,...d2]
+    const uniq = Array.from(
+      new Map(all.map(l=>[`${l.source}:${l.target}:${l["Edge Type"]}`,l])).values()
+    )
+    const nid = new Set(uniq.flatMap(l=>[l.source,l.target]))
+    const subNodes = nodes.filter(n=>nid.has(n.id))
+    setGraph({nodes:subNodes,links:uniq})
+    // (don’t clear selectedNode here)
   }, [data, selectedArtistIds])
 
-  // 3) D3 DRAW + ZOOM + CLICK
-  useEffect(() => {
-    if (!graph.nodes.length || !graph.links.length) return
-
-    const svg = d3.select(svgRef.current)
-    svg.selectAll('*').remove()
-
-    const width = 1000, height = 700
-    svg.attr('viewBox', [0, 0, width, height])
-
-    const container = svg.append('g')
-    const zoom = d3.zoom()
-      .scaleExtent([0.1, 5])
-      .on('zoom', event => {
-        container.attr('transform', event.transform)
-      })
-    svg.call(zoom)
-
-    simulationRef.current?.stop()
-
-    const resolvedLinks = graph.links.map(l => ({
-      ...l,
-      source: graph.nodes.find(n => n.id === l.source),
-      target: graph.nodes.find(n => n.id === l.target),
-    }))
-
-    const sim = d3.forceSimulation(graph.nodes)
-      .force('link',
-        d3.forceLink(resolvedLinks)
-          .id(d => d.id)
-          .distance(150)
-      )
-      .force('charge', d3.forceManyBody().strength(-300))
-      .force('center', d3.forceCenter(width/2, height/2))
-      .on('tick', ticked)
-    simulationRef.current = sim
-
-    const link = container.append('g')
-      .attr('stroke', '#aaa')
-      .selectAll('line')
-      .data(resolvedLinks, d => `${d.source.id}-${d.target.id}`)
-      .join('line')
-      .attr('stroke-width', 1.5)
-
-    const node = container.append('g')
-      .attr('stroke', '#fff').attr('stroke-width', 1.5)
-      .selectAll('circle')
-      .data(graph.nodes, d => d.id)
-      .join('circle')
-      .attr('r', 8)
-      .attr('fill', d => {
-        switch (d["Node Type"]) {
-          case "RecordLabel":    return '#95a5a6'   // grey
-          case "Song":           return '#2ecc71'   // green
-          case "Person":         return '#3498db'   // blue
-          case "Album":          return '#e91e63'   // pink
-          case "MusicalGroup":   return '#9b59b6'   // purple
-          default:               return '#7f8c8d'   // fallback grey
-        }
-      })
-      .style('cursor', 'pointer')
-      .on('click', (event, d) => {
-        setSelectedNode(d)
-        if (d["Node Type"] === "Person") {
-          setSelectedArtistIds([d.id])
-        }
-      })
-      .call(drag(sim))
-
-    const label = container.append('g')
-      .selectAll('text')
-      .data(graph.nodes, d => d.id)
-      .join('text')
-      .text(d => d.name || d.stage_name || d.id)
-      .attr('font-size', 10)
-      .attr('dx', 10)
-      .attr('dy', 3)
-
-    function ticked() {
-      link
-        .attr('x1', d => d.source.x)
-        .attr('y1', d => d.source.y)
-        .attr('x2', d => d.target.x)
-        .attr('y2', d => d.target.y)
-      node
-        .attr('cx', d => d.x)
-        .attr('cy', d => d.y)
-      label
-        .attr('x', d => d.x)
-        .attr('y', d => d.y)
+  const handleNodeClick = node => {
+    setSelectedNode(node)
+    if (node["Node Type"] === "Person") {
+      setIds([node.id])
     }
-
-    function drag(sim) {
-      return d3.drag()
-        .on('start', e => {
-          if (!e.active) sim.alphaTarget(0.3).restart()
-          e.subject.fx = e.subject.x
-          e.subject.fy = e.subject.y
-        })
-        .on('drag', e => {
-          e.subject.fx = e.x
-          e.subject.fy = e.y
-        })
-        .on('end', e => {
-          if (!e.active) sim.alphaTarget(0)
-          e.subject.fx = null
-          e.subject.fy = null
-        })
-    }
-
-    return () => sim.stop()
-  }, [graph, selectedArtistIds])
+  }
 
   return (
-    <div style={{ display: 'flex', gap: '1rem' }}>
-      <div>
-        <h2>Multi-Artist Network</h2>
-        <label>Select Artists:</label><br/>
-        <select
-          multiple
-          value={selectedArtistIds}
-          onChange={e => {
-            const vals = Array.from(
-              e.target.selectedOptions, o => o.value
-            )
-            setSelectedArtistIds(vals)
-            setSelectedNode(null)   // still clear only on dropdown change
-          }}
-          style={{ width: 300, height: 200 }}
-        >
-          {artistOptions.map(n => (
-            <option key={n.id} value={n.id}>
-              {n.name || n.stage_name || n.id}
-            </option>
-          ))}
-        </select>
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      height: '100vh',
+      background: '#7f7a78' /* your grey background */
+    }}>
+      {/* ─── TOP ROW: selector, network, toolbar ─── */}
+      <div style={{
+        display: 'flex',
+        flex: 1,
+        borderBottom: '2px solid #fff'
+      }}>
+        <div style={{ width: 300, padding: '1rem' }}>
+          <ArtistSelector
+            options={artists}
+            selectedIds={selectedArtistIds}
+            onChange={ids => {
+              setIds(ids)
+              setSelectedNode(null)
+            }}
+          />
+        </div>
+
+        <div style={{ flex: 1, position: 'relative' }}>
+          <Graph
+            graph={graph}
+            selectedArtistIds={selectedArtistIds}
+            onNodeClick={handleNodeClick}
+          />
+        </div>
+
+        <div style={{
+          width: 200,
+          background: '#888',
+          color: '#fff',
+          writingMode: 'vertical-rl',
+          textAlign: 'center',
+          lineHeight: '200px'
+        }}>
+          TOOLBAR
+        </div>
       </div>
 
-      <svg ref={svgRef} width={1000} height={700} />
-      
+      {/* ─── BOTTOM ROW: detail view 1 & 2 ─── */}
+      <div style={{ display: 'flex', height: 250 }}>
+        <div style={{
+          flex: 1,
+          borderRight: '2px solid #fff',
+          overflow: 'auto',
+          padding: '0.5rem'
+        }}>
+          <TimeSeriesChart nodes={data?.nodes || []} />
+        </div>
 
-      {selectedNode && (
-  <div style={{
-    maxWidth: 300,
-    padding: '0.5rem',
-    border: '1px solid #333',
-    background: '#333',   // ← darker grey
-    color:    '#fff',      // ← white text
-    borderRadius: '4px'
-    }}
-  >
-    {/* 1) Show the node’s display name as the heading */}
-    <h3 style={{ marginTop: 0 }}>
-      {selectedNode.name
-        || selectedNode.stage_name
-        || selectedNode.id}
-    </h3>
+        <div style={{ flex: 1, overflow: 'auto', padding: '0.5rem' }}>
+          <CombinedInfo
+            data={data}
+            selectedNode={selectedNode}
+            onNodeClick={handleNodeClick}
+            nodes={data?.nodes || []}
 
-    <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-      {/* 2) “Node Type” → “Type” */}
-      <li>
-        <strong>Type:</strong> {selectedNode["Node Type"]}
-      </li>
-
-      {/* 3) Only show stage_name if it exists */}
-      {selectedNode.stage_name && (
-        <li>
-          <strong>Stage Name:</strong> {selectedNode.stage_name}
-        </li>
-      )}
-
-      {/* 4) Only show genre if it exists */}
-      {selectedNode.genre && (
-        <li>
-          <strong>Genre:</strong> {selectedNode.genre}
-        </li>
-      )}
-
-      {/* 5) Always show the ID */}
-      <li>
-        <strong>ID:</strong> {selectedNode.id}
-      </li>
-
-      {/* 6) If you have album/song fields you care about, add them likewise:
-      {selectedNode.release_date && (
-        <li>
-          <strong>Released:</strong> {selectedNode.release_date}
-        </li>
-      )} */}
-    </ul>
-  </div>
-)}
+          />
+        </div>
+      </div>
     </div>
   )
-} 
-
-export default NetworkGraph
+}

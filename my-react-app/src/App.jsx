@@ -6,24 +6,24 @@ import FetchData from './fetchdata.jsx' // Importera din komponent
 import NetworkGraph from './NetworkGraph.jsx' // Importera din komponent
 
 function App() {
-  const [count, setCount] = useState(0)
+  //const [count, setCount] = useState(0)
 
   return (
     <>
-      <h1>Vite + React</h1>
+      <h1>Musical Network</h1>
       <NetworkGraph />
-      <div className="card">
+      {/* <div className="card">
         <button onClick={() => setCount((count) => count + 1)}>
           count is {count}
         </button>
         <p>
           Edit <code>src/App.jsx</code> and save to test HMR
         </p>
-      </div>
-      <p className="read-the-docs">
+      </div> */}
+      {/* <p className="read-the-docs">
         Click on the Vite and React logos to learn more
-      </p>
-      <FetchData /> {/* 👈 Här visas innehållet från din JSON */}
+      </p> */}
+      {/* <FetchData /> 👈 Här visas innehållet från din JSON */}
 
     </>
   )
