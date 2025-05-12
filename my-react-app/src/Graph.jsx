@@ -2,6 +2,21 @@
 import React, { useEffect, useRef } from 'react'
 import * as d3 from 'd3'
 
+const EDGE_DESCRIPTIONS = {
+  PerformerOf:       (s,t) => `${s} performed ${t}`,
+  ComposerOf:        (s,t) => `${s} composed ${t}`,
+  ProducerOf:        (s,t) => `${s} produced ${t}`,
+  LyricistOf:        (s,t) => `${s} wrote lyrics for ${t}`,
+  RecordedBy:        (s,t) => `${t} recorded ${s}`,
+  DistributedBy:     (s,t) => `${t} distributed ${s}`,
+  InStyleOf:         (s,t) => `${s} was performed in the style of ${t}`,
+  InterpolatesFrom:  (s,t) => `${s} interpolates a melody from ${t}`,
+  CoverOf:           (s,t) => `${s} is a cover of ${t}`,
+  LyricalReferenceTo:(s,t) => `${s} makes a lyrical reference to ${t}`,
+  DirectlySamples:   (s,t) => `${s} directly samples ${t}`,
+  MemberOf:          (s,t) => `${s} was/is a member of ${t}`
+}
+
 export default function Graph({
   graph,
   visibleEdgeTypes,
@@ -131,9 +146,13 @@ export default function Graph({
         )
         .style('opacity', 0.7)
         .on('mouseover', (e,d) => {
-          tooltipRef.current
-            .style('visibility','visible')
-            .text(d['Edge Type'])
+          const src = d.source.name || d.source.stage_name || d.source.id
+     const tgt = d.target.name || d.target.stage_name || d.target.id
+     const describe = EDGE_DESCRIPTIONS[d['Edge Type']] 
+                     || ((s,t) => `${d['Edge Type']}: ${s} → ${t}`)
+     tooltipRef.current
+       .style('visibility','visible')
+       .text(describe(src, tgt))
         })
         .on('mousemove', e => {
           tooltipRef.current
@@ -277,7 +296,7 @@ export default function Graph({
      ref={svgRef}
      style={{ width: '100%', height: '100%', display: 'block' }}
      viewBox={`0 0 ${width} ${height}`}
-     preserveAspectRatio="xMidYMid meet"
+    preserveAspectRatio="xMidYMid meet"
    />
 )
 }
