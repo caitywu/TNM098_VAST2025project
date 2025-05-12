@@ -10,7 +10,21 @@ export default function Graph({
 }) {
   const svgRef     = useRef()
   const simRef     = useRef()
+  const zoomRef = useRef()
   const tooltipRef = useRef()
+
+  useEffect(() => {
+    zoomRef.current = d3.zoom()
+      .scaleExtent([0.1, 5])
+      .on('zoom', e => {
+        // apply transform to the inner <g>
+        d3.select(svgRef.current).select('g')
+          .attr('transform', e.transform)
+      })
+  }, [])
+
+  const width  = 800
+  const height = 600
 
   // Create the tooltip div once
   useEffect(() => {
@@ -27,6 +41,7 @@ export default function Graph({
         .style('visibility','hidden')
     }
   }, [])
+  
 
   useEffect(() => {
     if (!graph.nodes.length) return
@@ -34,15 +49,15 @@ export default function Graph({
     const svg = d3.select(svgRef.current)
     svg.selectAll('*').remove()
 
-    const width = 800, height = 600
     svg.attr('viewBox', `0 0 ${width} ${height}`)
 
     // Container for zoom/pan
     const container = svg.append('g')
-    svg.call(
-      d3.zoom().scaleExtent([0.1,5])
-        .on('zoom', evt => container.attr('transform', evt.transform))
-    )
+    svg.call(zoomRef.current)
+
+    // re‐apply the last known zoom transform
+    const last = d3.zoomTransform(svgRef.current)
+    svg.call(zoomRef.current.transform, last)
 
     // 1) Filter edges by type
     const filtered = graph.links.filter(l =>
@@ -76,14 +91,30 @@ export default function Graph({
 
     // 5) Build the force simulation
     simRef.current?.stop()
-    const sim = d3.forceSimulation(graph.nodes)
-      .force('link', d3.forceLink(linkData)
-        .id(d => d.id)
-        .distance(120)
-      )
-      .force('charge', d3.forceManyBody().strength(-200))
-      .force('center', d3.forceCenter(width/2, height/2))
-      .on('tick', ticked)
+    function forceFocus(alpha) {
+     if (!selectedNodeId) return
+     const n = graph.nodes.find(d => d.id === selectedNodeId)
+     if (n) {
+      // strength controls how "hard" it pulls
+       const strength = 0.01 * alpha
+       n.vx += (width/2 - n.x) * strength
+       n.vy += (height/2 - n.y) * strength
+     }
+   }
+
+   const sim = d3.forceSimulation(graph.nodes)
+     .force('link', d3.forceLink(linkData)
+       .id(d => d.id)
+       .distance(120)
+     )
+     .force('charge', d3.forceManyBody().strength(-200))
+     // optional: you can keep center to gently keep others in view
+     .force('center', d3.forceCenter(width/2, height/2))
+     // our custom focus force
+     .force('focus', forceFocus)
+     .on('tick', ticked)
+
+
     simRef.current = sim
 
     // 6) Draw curved, gradient edges
@@ -215,5 +246,38 @@ export default function Graph({
     return () => sim.stop()
   }, [graph, visibleEdgeTypes, selectedNodeId, onNodeClick])
 
-  return <svg ref={svgRef} width={800} height={600}/>
+  // 3) Recenter effect: runs when selectedNodeId changes
+  useEffect(() => {
+    if (!selectedNodeId) return
+    // find the node
+    const node = graph.nodes.find(n => n.id === selectedNodeId)
+    if (!node) return
+
+    // grab the raw SVG element and its current zoom‐transform
+  const svgEl = svgRef.current
+  const cur   = d3.zoomTransform(svgEl)   // { x, y, k: scale }
+
+  // compute new translate so that node.x,node.y goes to the center
+  const x = (width  / 2) - node.x * cur.k
+  const y = (height / 2) - node.y * cur.k
+
+  // apply it with a smooth transition, preserving cur.k
+  d3.select(svgEl)
+    .transition().duration(750)
+    .call(
+      zoomRef.current.transform,
+      d3.zoomIdentity.translate(x, y).scale(cur.k)
+    )
+  }, [selectedNodeId, graph.nodes, visibleEdgeTypes])
+
+
+
+   return (
+   <svg
+     ref={svgRef}
+     style={{ width: '100%', height: '100%', display: 'block' }}
+     viewBox={`0 0 ${width} ${height}`}
+     preserveAspectRatio="xMidYMid meet"
+   />
+)
 }

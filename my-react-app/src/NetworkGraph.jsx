@@ -26,7 +26,7 @@ export default function NetworkGraph() {
   const [selectedArtistIds, setIds] = useState([]);
   const [graph, setGraph] = useState({ nodes: [], links: [] });
   const [selectedNode, setSelectedNode] = useState(null);
-
+  const [maxHops, setMaxHops] = useState(2) //2 connection per default
 
   // load & normalize
   useEffect(() => {
@@ -54,28 +54,48 @@ export default function NetworkGraph() {
       });
   }, []);
 
-  // build 2-hop
-  useEffect(() => {
-    if (!data || !selectedArtistIds.length) return;
-    const { nodes, links } = data;
-    const d1 = links.filter(
-      (l) =>
-        selectedArtistIds.includes(l.source) ||
-        selectedArtistIds.includes(l.target)
-    );
-    const hop1 = new Set(d1.flatMap((l) => [l.source, l.target]));
-    const d2 = links.filter((l) => hop1.has(l.source) || hop1.has(l.target));
-    const all = [...d1, ...d2];
-    const uniq = Array.from(
-      new Map(
-        all.map((l) => [`${l.source}:${l.target}:${l["Edge Type"]}`, l])
-      ).values()
-    );
-    const nid = new Set(uniq.flatMap((l) => [l.source, l.target]));
-    const subNodes = nodes.filter((n) => nid.has(n.id));
-    setGraph({ nodes: subNodes, links: uniq });
-    // (don’t clear selectedNode here)
-  }, [data, selectedArtistIds]);
+  // dynamic hoops
+     useEffect(() => {
+   if (!data || selectedArtistIds.length === 0) return
+   const { nodes, links } = data
+
+   const reachable = new Set(selectedArtistIds)
+   let frontier = new Set(selectedArtistIds)
+
+   const linkKeys = new Set()
+   const selectedLinks = []
+
+   for (let hop = 1; hop <= maxHops; hop++) {
+    // 1) find all edges touching the current frontier
+     const newLinks = links.filter(
+       l => frontier.has(l.source) || frontier.has(l.target)
+     )
+     // 2) dedupe & collect
+     newLinks.forEach(l => {
+       const key = `${l.source}-${l.target}-${l["Edge Type"]}`
+       if (!linkKeys.has(key)) {
+         linkKeys.add(key)
+         selectedLinks.push(l)
+       }
+     })
+     // 3) build the next frontier = endpoints of those edges not yet seen
+     const candidates = new Set()
+     newLinks.forEach(l => {
+       candidates.add(l.source)
+       candidates.add(l.target)
+     })
+     const prevReachable = new Set(reachable)
+     frontier = new Set(
+       [...candidates].filter(id => !prevReachable.has(id))
+     )
+     // 4) merge into reachable
+     frontier.forEach(id => reachable.add(id))
+   }
+
+   // finally, pick the nodes and links in our n-hop neighborhood
+   const subNodes = nodes.filter(n => reachable.has(n.id))
+   setGraph({ nodes: subNodes, links: selectedLinks })
+  }, [data, selectedArtistIds, maxHops]);
 
   const handleNodeClick = (node) => {
     setSelectedNode(node);
@@ -100,13 +120,21 @@ export default function NetworkGraph() {
     });
   }
 
+   function selectAllEdges() {
+   setVisibleEdgeTypes(new Set(allEdgeTypes))
+ }
+
+ function deselectAllEdges() {
+   setVisibleEdgeTypes(new Set())
+ }
+
   return (
     <div
       style={{
         display: "flex",
         flexDirection: "column",
         height: "100vh",
-        background: "#7f7a78" /* your grey background */,
+        background: "#7f7a78",
       }}
     >
       {/* ─── TOP ROW: selector, network, toolbar ─── */}
@@ -117,7 +145,7 @@ export default function NetworkGraph() {
           borderBottom: "2px solid #fff",
         }}
       >
-        <div style={{ width: 300, padding: "1rem" }}>
+        <div style={{ flex: '0 0 15%', padding: "1rem" }}>
           <ArtistSelector
             options={artists}
             selectedIds={selectedArtistIds}
@@ -126,9 +154,21 @@ export default function NetworkGraph() {
               setSelectedNode(null);
             }}
           />
+          <div style={{ marginTop: '1rem' }}>
+            <label htmlFor="hopSelect"><strong>Connections (1=direct links):</strong> </label>
+            <select
+              id="hopSelect"
+              value={maxHops}
+              onChange={e => setMaxHops(Number(e.target.value))}
+            >
+              {[1,2,3].map(h => (
+                <option key={h} value={h}>{h}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
-        <div style={{ flex: 1, position: "relative" }}>
+        <div style={{ flex: '1 1 70%', minWidth: 800, position: "relative" }}>
           <Graph
             graph={graph}
             selectedArtistIds={selectedArtistIds}
@@ -140,15 +180,18 @@ export default function NetworkGraph() {
 
         <div
           style={{
-            background: "#888",
-            color: "#fff",
-            textAlign: "center",
+    flex: '0 0 15%',
+    background: '#888',
+    color: '#fff',
+    padding: '1rem'
           }}
         >
           <EdgeFilter
             edgeTypes={allEdgeTypes}
             visible={visibleEdgeTypes}
             onToggle={toggleEdgeType}
+            onSelectAll={selectAllEdges}
+            onDeselectAll={deselectAllEdges}
           />
         </div>
       </div>
