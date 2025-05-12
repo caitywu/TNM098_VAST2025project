@@ -5,12 +5,6 @@ import CombinedInfo from "./CombinedInfo";
 import TimeSeriesChart from "./TimeSeriesChart";
 import EdgeFilter from "./EdgeFilter";
 
-export default function NetworkGraph() {
-  const [data, setData] = useState(null);
-  const [artists, setArtists] = useState([]);
-  const [selectedArtistIds, setIds] = useState([]);
-  const [graph, setGraph] = useState({ nodes: [], links: [] });
-  const [selectedNode, setSelectedNode] = useState(null);
   const allEdgeTypes = [
     "PerformerOf",
     "ComposerOf",
@@ -25,6 +19,14 @@ export default function NetworkGraph() {
     "DirectlySamples",
     "MemberOf",
   ];
+
+export default function NetworkGraph() {
+  const [data, setData] = useState(null);
+  const [artists, setArtists] = useState([]);
+  const [selectedArtistIds, setIds] = useState([]);
+  const [graph, setGraph] = useState({ nodes: [], links: [] });
+  const [selectedNode, setSelectedNode] = useState(null);
+
 
   // load & normalize
   useEffect(() => {
