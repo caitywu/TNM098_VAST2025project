@@ -4,6 +4,7 @@ import * as d3 from 'd3'
 export default function Graph({
   graph,
   selectedArtistIds,
+  selectedNodeId,    // newly added
   onNodeClick
 }) {
   const svgRef = useRef()
@@ -20,17 +21,16 @@ export default function Graph({
 
     const container = svg.append('g')
     svg.call(d3.zoom()
-      .scaleExtent([0.1,5])
-      .on('zoom', e => container.attr('transform', e.transform))
+      .scaleExtent([0.1, 5])
+      .on('zoom', event => container.attr('transform', event.transform))
     )
 
     simRef.current?.stop()
 
-    // resolve links
     const links = graph.links.map(l => ({
       ...l,
       source: graph.nodes.find(n => n.id === l.source),
-      target: graph.nodes.find(n => n.id === l.target)
+      target: graph.nodes.find(n => n.id === l.target),
     }))
 
     const sim = d3.forceSimulation(graph.nodes)
@@ -39,27 +39,40 @@ export default function Graph({
         .distance(150)
       )
       .force('charge', d3.forceManyBody().strength(-200))
-      .force('center', d3.forceCenter(width/2, height/2))
+      .force('center', d3.forceCenter(width / 2, height / 2))
       .on('tick', ticked)
-
     simRef.current = sim
 
-    // links
+    // Link lines
     container.append('g')
-      .attr('stroke','#aaa')
+      .attr('stroke', '#aaa')
       .selectAll('line')
       .data(links, d => `${d.source.id}:${d.target.id}`)
       .join('line')
-      .attr('stroke-width',1.2)
+      .attr('stroke-width', 1.2)
 
-    // nodes
+    // 1) Node‐type → symbol type map
+    const shapeMap = {
+      Person:       d3.symbolCircle,
+      Song:         d3.symbolTriangle,
+      Album:        d3.symbolSquare,
+      MusicalGroup: d3.symbolStar,
+      RecordLabel:  d3.symbolDiamond
+    }
+
+    // 2) Symbol generator with dynamic size
+    const symGen = d3.symbol()
+      .type(d => shapeMap[d["Node Type"]] || d3.symbolCircle)
+      .size(d => d.id === selectedNodeId ? 300 : 50)
+
+    // 3) Draw nodes as <path>
     const nodeSel = container.append('g')
-      .attr('stroke','#fff')
-      .attr('stroke-width',1.2)
-      .selectAll('circle')
+      .attr('stroke', '#fff')
+      .attr('stroke-width', 1.2)
+      .selectAll('path')
       .data(graph.nodes, d => d.id)
-      .join('circle')
-      .attr('r', 6)
+      .join('path')
+      .attr('d', symGen)
       .attr('fill', d => {
         switch (d["Node Type"]) {
           case "RecordLabel":  return '#95a5a6'
@@ -70,8 +83,8 @@ export default function Graph({
           default:             return '#7f8c8d'
         }
       })
-      .style('cursor','pointer')
-      .on('click', (e,d) => onNodeClick(d))
+      .style('cursor', 'pointer')
+      .on('click', (e, d) => onNodeClick(d))
       .call(d3.drag()
         .on('start', evt => {
           if (!evt.active) sim.alphaTarget(0.3).restart()
@@ -89,8 +102,8 @@ export default function Graph({
         })
       )
 
-    // labels
-    container.append('g')
+    // Labels
+    const labelSel = container.append('g')
       .selectAll('text')
       .data(graph.nodes, d => d.id)
       .join('text')
@@ -99,22 +112,24 @@ export default function Graph({
       .attr('dx', 8)
       .attr('dy', 3)
 
+    // Tick handler: reposition everything
     function ticked() {
       container.selectAll('line')
-        .attr('x1', d=>d.source.x)
-        .attr('y1', d=>d.source.y)
-        .attr('x2', d=>d.target.x)
-        .attr('y2', d=>d.target.y)
+        .attr('x1', d => d.source.x)
+        .attr('y1', d => d.source.y)
+        .attr('x2', d => d.target.x)
+        .attr('y2', d => d.target.y)
+
       nodeSel
-        .attr('cx', d=>d.x)
-        .attr('cy', d=>d.y)
-      container.selectAll('text')
-        .attr('x', d=>d.x)
-        .attr('y', d=>d.y)
+        .attr('transform', d => `translate(${d.x},${d.y})`)
+
+      labelSel
+        .attr('x', d => d.x)
+        .attr('y', d => d.y)
     }
 
     return () => sim.stop()
-  }, [graph, selectedArtistIds, onNodeClick])
+  }, [graph, selectedArtistIds, selectedNodeId, onNodeClick])
 
   return <svg ref={svgRef} width="800" height="600" />
 }

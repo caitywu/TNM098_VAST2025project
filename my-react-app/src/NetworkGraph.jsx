@@ -89,6 +89,7 @@ export default function NetworkGraph() {
           <Graph
             graph={graph}
             selectedArtistIds={selectedArtistIds}
+            selectedNodeId={selectedNode?.id}
             onNodeClick={handleNodeClick}
           />
         </div>
