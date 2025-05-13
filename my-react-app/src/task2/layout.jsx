@@ -8,7 +8,7 @@ export default function Layout() {
         <h1>Musical Network</h1>
         <nav style={{ marginTop: '0.5rem' }}>
           <Link to="/" style={{ marginRight: '1rem' }}>Network Graph</Link>
-          <Link to="/task2">Task 2</Link>
+          <Link to="/task2">Genre Analysis</Link>
         </nav>
       </header>
       <main style={{ padding: '1rem 2rem' }}>
