@@ -1,0 +1,26 @@
+/* Basic styling for the graph container */
+.task2-container {
+  text-align: center;
+  margin: 0 auto;
+}
+
+/* Tooltip styles */
+.tooltip {
+  background-color: rgba(0, 0, 0, 0.75);
+  color: white;
+  padding: 5px;
+  border-radius: 3px;
+  pointer-events: none;
+}
+
+/* Style for nodes and edges */
+circle {
+  stroke: #fff;
+  stroke-width: 1.5px;
+  cursor: pointer;
+}
+
+line {
+  stroke: #ccc;
+  stroke-width: 1px;
+}
