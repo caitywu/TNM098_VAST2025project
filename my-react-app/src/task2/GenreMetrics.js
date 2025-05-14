@@ -1,7 +1,14 @@
+
 export function computeGenreMetrics(nodes, links) {
   const genreStats = {};
 
-  nodes.forEach(node => {
+  // Normalize "Node Type" to nodeType
+  const normalizedNodes = nodes.map(node => ({
+    ...node,
+    nodeType: node.nodeType || node["Node Type"] || null,
+  }));
+
+  normalizedNodes.forEach(node => {
     if (!node.genre) return;
 
     const genre = node.genre;
@@ -26,8 +33,8 @@ export function computeGenreMetrics(nodes, links) {
   });
 
   links.forEach(link => {
-    const target = nodes.find(n => n.id === link.target);
-    const source = nodes.find(n => n.id === link.source);
+    const target = normalizedNodes.find(n => n.id === link.target);
+    const source = normalizedNodes.find(n => n.id === link.source);
     if (!target || !target.genre) return;
 
     const genre = target.genre;
@@ -60,3 +67,4 @@ export function computeGenreMetrics(nodes, links) {
     lyricistsAndComposers: g.lyricists.size + g.composers.size,
   }));
 }
+

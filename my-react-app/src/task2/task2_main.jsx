@@ -39,10 +39,15 @@ export default function Task2Main() {
 
   return (
     <div>
-      <h2>Genre Overview: Parallel Coordinates</h2>
+
+      {/* Style the h2 header */}
+      <h4 style={{ position: 'fixed', top: '100px' }}>
+        Genre Overview: Parallel Coordinates
+      </h4>
+
       <ParallelPlot data={genreStats} />
 
-      {/* <h3>Genres Found ({genreList.length}):</h3> */}
+      <h3>Genres Found ({genreList.length}):</h3>
 
       {/* Scrollable Panel on Right Edge */}
       <div
@@ -51,6 +56,7 @@ export default function Task2Main() {
           top: '246px',
           right: '0',
           width: '200px', // Thin panel width
+          height: 'calc(100vh - 80px)',
           maxHeight: '50vh', // Max height of the panel
           overflowY: 'auto',
           border: '1px solid #ccc',

@@ -6,21 +6,20 @@ const dimensions = [
   'albums',
   'recordLabels',
   'artists',
+  // 'groups', // newly added
   'notables',
   'lyricistsAndComposers',
 ];
 
-// Maps genre to color group
 function genreColor(genre) {
   if (genre === "Oceanus Folk") return "red";
-  if (genre.toLowerCase().endsWith("rock")) return "#1f77b4";    // blue
-  if (genre.toLowerCase().endsWith("folk")) return "#2ca02c";    // green
-  if (genre.toLowerCase().endsWith("metal")) return "#9467bd";   // purple
-  if (genre.toLowerCase().endsWith("pop")) return "#ff7f0e";     // orange
-  return "#000000"; // other
+  if (genre.toLowerCase().endsWith("rock")) return "#1f77b4";
+  if (genre.toLowerCase().endsWith("folk")) return "#2ca02c";
+  if (genre.toLowerCase().endsWith("metal")) return "#9467bd";
+  if (genre.toLowerCase().endsWith("pop")) return "#ff7f0e";
+  return "#000000";
 }
 
-// Map genre to legend group
 function getGenreGroup(genre) {
   if (genre === "Oceanus Folk") return "Oceanus Folk";
   if (genre.toLowerCase().endsWith("rock")) return "Rock";
@@ -60,7 +59,6 @@ export default function ParallelPlot({ data }) {
       .append("g")
       .attr("transform", `translate(${margin.left},${margin.top})`);
 
-    // Scales
     const y = {};
     for (let dim of dimensions) {
       y[dim] = d3
@@ -71,42 +69,52 @@ export default function ParallelPlot({ data }) {
 
     const x = d3.scalePoint().range([0, width]).domain(dimensions);
 
-    // Line generator
     function path(d) {
       return d3.line()(dimensions.map(p => [x(p), y[p](d[p])]));
     }
 
-    // Draw lines
     g.selectAll("path")
-        .data(data)
-        .enter()
-        .append("path")
-        .attr("d", path)
-        .attr("stroke", d => genreColor(d.genre))
-        .attr("stroke-opacity", d => {
-    const group = getGenreGroup(d.genre);
-    return selectedGroups[group] ? (group === "Oceanus Folk" ? 1 : 0.3) : 0;
-    })
-    .attr("stroke-width", d => d.genre === "Oceanus Folk" ? 3 : 100)
-    .attr("fill", "none")
-    // Add invisible hover target area (for easier hovering)
-    .attr("stroke-width", 5)  // Increase the invisible hit area for hover detection
-    .attr("pointer-events", "visibleStroke")  // Ensure the line still receives pointer events
-    .on("mousemove", function (event, d) {
+      .data(data)
+      .enter()
+      .append("path")
+      .attr("d", path)
+      .attr("stroke", d => genreColor(d.genre))
+      .attr("stroke-opacity", d => {
         const group = getGenreGroup(d.genre);
-        if (!selectedGroups[group]) return;  // Don't show tooltip if line is hidden
+        return selectedGroups[group] ? (group === "Oceanus Folk" ? 1 : 0.5) : 0;
+      })
+      .attr("stroke-width", d => d.genre === "Oceanus Folk" ? 3 : 10)
+      .attr("fill", "none")
+      .attr("pointer-events", "visibleStroke")
+      .on("mousemove", function (event, d) {
+        const group = getGenreGroup(d.genre);
+        if (!selectedGroups[group]) return;
 
-    d3.select(tooltipRef.current)
-        .style("visibility", "visible")
-        .style("left", `${event.pageX + 10}px`)
-        .style("top", `${event.pageY + 10}px`)
-        .text(`Genre: ${d.genre}`);
-  })
-  .on("mouseout", () => {
-    d3.select(tooltipRef.current).style("visibility", "hidden");
-  });
+        // Highlight the hovered line
+        d3.select(this)
+          .raise()
+          .attr("stroke", "#ffffff")
+          .attr("stroke-width", 10)
+          .attr("stroke-opacity", 1);
 
-    // Axes
+        d3.select(tooltipRef.current)
+          .style("visibility", "visible")
+          .style("left", `${event.pageX + 10}px`)
+          .style("top", `${event.pageY + 10}px`)
+          .text(`Genre: ${d.genre}`);
+      })
+      .on("mouseout", function (event, d) {
+        const group = getGenreGroup(d.genre);
+        if (!selectedGroups[group]) return;
+
+        d3.select(this)
+          .attr("stroke", genreColor(d.genre))
+          .attr("stroke-width", d.genre === "Oceanus Folk" ? 3 : 10) // on hover out parameters
+          .attr("stroke-opacity", group === "Oceanus Folk" ? 1 : 0.5);
+
+        d3.select(tooltipRef.current).style("visibility", "hidden");
+      });
+
     g.selectAll(".dimension")
       .data(dimensions)
       .enter()
@@ -122,7 +130,6 @@ export default function ParallelPlot({ data }) {
       .text(d => d)
       .style("fill", "black");
 
-    // Legend
     const legendData = [
       { label: "Rock", color: "#1f77b4" },
       { label: "Folk", color: "#2ca02c" },
@@ -172,26 +179,23 @@ export default function ParallelPlot({ data }) {
     <div>
       <svg ref={ref}></svg>
 
-      {/* Tooltip */}
-    <div
+      <div
         ref={tooltipRef}
         style={{
-            position: "absolute",
-            visibility: "hidden",
-            backgroundColor: "#fff",
-            border: "1px solid #ddd",
-            padding: "8px 15px",  // Increase padding to make the tooltip wider
-            borderRadius: "5px",  // Slightly round the corners for a softer look
-            pointerEvents: "none",  // Ensure it doesn't interfere with mouse events
-            fontSize: "14px",       // Increase font size for better visibility
-            zIndex: 10,
-            width: "auto",          // Let it auto adjust to content
-            maxWidth: "200px",      // Set a max width to ensure it doesn't get too wide
+          position: "absolute",
+          visibility: "hidden",
+          backgroundColor: "#fff",
+          border: "1px solid #ddd",
+          padding: "8px 15px",
+          borderRadius: "5px",
+          pointerEvents: "none",
+          fontSize: "14px",
+          zIndex: 10,
+          width: "auto",
+          maxWidth: "200px",
         }}
-    />
+      />
 
-
-      {/* Legend */}
       <svg ref={legendRef}></svg>
     </div>
   );
