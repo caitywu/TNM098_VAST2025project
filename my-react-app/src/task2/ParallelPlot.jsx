@@ -178,7 +178,7 @@ export default function ParallelPlot({ data, highlightedGenre }) {
       .attr("width", 14)
       .attr("height", 14)
       .attr("fill", d => d.color)
-      .attr("stroke", d => selectedGroups[d.label] ? "none" : "#ccc")
+      .attr("stroke", d => selectedGroups[d.label] ? "#ccc" : "none")
       .attr("stroke-width", 2);
 
     items.append("text")
