@@ -5,10 +5,10 @@ const dimensions = [
   'songs',
   'albums',
   'recordLabels',
-  'artists',
-  // 'groups', // newly added
   'notables',
   'lyricistsAndComposers',
+  'artistsAndGroups',
+  // 'groups', // newly added
 ];
 
 function genreColor(genre) {
@@ -81,9 +81,9 @@ export default function ParallelPlot({ data }) {
       .attr("stroke", d => genreColor(d.genre))
       .attr("stroke-opacity", d => {
         const group = getGenreGroup(d.genre);
-        return selectedGroups[group] ? (group === "Oceanus Folk" ? 1 : 0.5) : 0;
+        return selectedGroups[group] ? (group === "Oceanus Folk" ? 1 : 0.75) : 0;
       })
-      .attr("stroke-width", d => d.genre === "Oceanus Folk" ? 3 : 10)
+      .attr("stroke-width", d => d.genre === "Oceanus Folk" ? 5 : 3)
       .attr("fill", "none")
       .attr("pointer-events", "visibleStroke")
       .on("mousemove", function (event, d) {
@@ -94,7 +94,7 @@ export default function ParallelPlot({ data }) {
         d3.select(this)
           .raise()
           .attr("stroke", "#ffffff")
-          .attr("stroke-width", 10)
+          .attr("stroke-width", 4)
           .attr("stroke-opacity", 1);
 
         d3.select(tooltipRef.current)
@@ -109,8 +109,8 @@ export default function ParallelPlot({ data }) {
 
         d3.select(this)
           .attr("stroke", genreColor(d.genre))
-          .attr("stroke-width", d.genre === "Oceanus Folk" ? 3 : 10) // on hover out parameters
-          .attr("stroke-opacity", group === "Oceanus Folk" ? 1 : 0.5);
+          .attr("stroke-width", d.genre === "Oceanus Folk" ? 5 : 3) // on hover out parameters
+          .attr("stroke-opacity", group === "Oceanus Folk" ? 1 : 0.75);
 
         d3.select(tooltipRef.current).style("visibility", "hidden");
       });

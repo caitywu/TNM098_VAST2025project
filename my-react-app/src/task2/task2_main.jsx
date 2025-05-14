@@ -47,7 +47,7 @@ export default function Task2Main() {
 
       <ParallelPlot data={genreStats} />
 
-      <h3>Genres Found ({genreList.length}):</h3>
+      {/* <h3>Genres Found ({genreList.length}):</h3> */}
 
       {/* Scrollable Panel on Right Edge */}
       <div
