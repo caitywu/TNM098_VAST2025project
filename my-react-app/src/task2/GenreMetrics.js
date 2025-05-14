@@ -1,102 +1,25 @@
-
-// export function computeGenreMetrics(nodes, links) {
-//   const genreStats = {};
-
-//   // Normalize "Node Type" to nodeType
-//   const normalizedNodes = nodes.map(node => ({
-//     ...node,
-//     nodeType: node.nodeType || node["Node Type"] || null,
-//   }));
-
-//   normalizedNodes.forEach(node => {
-//     if (!node.genre) return;
-
-//     const genre = node.genre;
-//     if (!genreStats[genre]) {
-//       genreStats[genre] = {
-//         genre,
-//         songs: 0,
-//         albums: 0,
-//         recordLabels: new Set(),
-//         artists: new Set(),
-//         notables: 0,
-//         lyricists: new Set(),
-//         composers: new Set(),
-//       };
-//     }
-
-//     const g = genreStats[genre];
-
-//     if (node.nodeType === "Song") g.songs++;
-//     if (node.nodeType === "Album") g.albums++;
-//     if (node.notable) g.notables++;
-//   });
-
-//   links.forEach(link => {
-//     const target = normalizedNodes.find(n => n.id === link.target);
-//     const source = normalizedNodes.find(n => n.id === link.source);
-//     if (!target || !target.genre) return;
-
-//     const genre = target.genre;
-//     const g = genreStats[genre];
-
-//     if (["RecordedBy", "DistributedBy"].includes(link.edgeType)) {
-//       g.recordLabels.add(link.source);
-//     }
-
-//     if (["PerformerOf", "MemberOf"].includes(link.edgeType)) {
-//       g.artists.add(link.source);
-//     }
-
-//     if (link.edgeType === "LyricistOf") {
-//       g.lyricists.add(link.source);
-//     }
-
-//     if (link.edgeType === "ComposerOf") {
-//       g.composers.add(link.source);
-//     }
-//   });
-
-//   return Object.values(genreStats).map(g => ({
-//     genre: g.genre,
-//     songs: g.songs,
-//     albums: g.albums,
-//     recordLabels: g.recordLabels.size,
-//     artists: g.artists.size,
-//     notables: g.notables,
-//     lyricistsAndComposers: g.lyricists.size + g.composers.size,
-//   }));
-// }
-
-
-// Helper function to normalize edge types
-// function normalizeEdgeType(edgeType) {
-//   if (!edgeType) return null;
-
-//   return edgeType
-//     .toLowerCase()
-//     .replace(/ /g, ''); // Remove spaces and standardize the casing
-// }
-
-export function computeGenreMetrics(nodes, links) {
+export function computeGenreMetrics(nodes, links, yearRange = [0, Infinity]) {
   const genreStats = {};
+  const [minYear, maxYear] = yearRange;
 
-  // Normalize "Node Type" to nodeType
   const normalizedNodes = nodes.map(node => ({
     ...node,
     nodeType: node.nodeType || node["Node Type"] || null,
+    release_date: parseInt(node.release_date),
   }));
 
-  // Normalize edge types
+  const nodeById = new Map(normalizedNodes.map(n => [n.id, n]));
+
   const normalizedLinks = links.map(link => ({
     ...link,
-    edgeType: link.edgeType || link["Edge Type"] || null, // Normalize edge type here
+    edgeType: link.edgeType || link["Edge Type"] || null,
   }));
 
+  // First pass: process all nodes (songs & albums)
   normalizedNodes.forEach(node => {
-    if (!node.genre) return;
+    const { genre, nodeType, release_date, notable } = node;
+    if (!genre || isNaN(release_date) || release_date < minYear || release_date > maxYear) return;
 
-    const genre = node.genre;
     if (!genreStats[genre]) {
       genreStats[genre] = {
         genre,
@@ -112,20 +35,25 @@ export function computeGenreMetrics(nodes, links) {
 
     const g = genreStats[genre];
 
-    if (node.nodeType === "Song") g.songs++;
-    if (node.nodeType === "Album") g.albums++;
-    if (node.notable) g.notables++;
+    if (nodeType === "Song") {
+      g.songs++;
+      if (notable) g.notables++;
+    } else if (nodeType === "Album") {
+      g.albums++;
+    }
   });
 
+  // Second pass: process all links
   normalizedLinks.forEach(link => {
-    const target = normalizedNodes.find(n => n.id === link.target);
-    const source = normalizedNodes.find(n => n.id === link.source);
+    const target = nodeById.get(link.target);
     if (!target || !target.genre) return;
 
-    const genre = target.genre;
-    const g = genreStats[genre];
+    const { genre, release_date } = target;
+    if (isNaN(release_date) || release_date < minYear || release_date > maxYear) return;
 
-    // Now handle the normalized edge types
+    const g = genreStats[genre];
+    if (!g) return;
+
     if (["RecordedBy", "DistributedBy"].includes(link.edgeType)) {
       g.recordLabels.add(link.source);
     }
@@ -143,8 +71,6 @@ export function computeGenreMetrics(nodes, links) {
     }
   });
 
-
-  // Return the genre metrics as an array of objects, with updated counts
   return Object.values(genreStats).map(g => ({
     genre: g.genre,
     songs: g.songs,
