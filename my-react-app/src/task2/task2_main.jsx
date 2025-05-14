@@ -1,13 +1,3 @@
-// Task2Main.jsx
-// export default function Task2Main() {
-//   return (
-//     <div>
-//       <h2>Task 2 Page</h2>
-//       <p>This is the content for the second page!!</p>
-//     </div>
-//   );
-// }
-
 import React, { useEffect, useState } from 'react';
 import { loadGraphData } from './dataLoader';
 import { computeGenreMetrics } from './GenreMetrics';
@@ -26,6 +16,7 @@ function genreColor(genre) {
 export default function Task2Main() {
   const [data, setData] = useState(null);
   const [genreStats, setGenreStats] = useState([]);
+  const [highlightedGenre, setHighlightedGenre] = useState(null);
 
   useEffect(() => {
     loadGraphData('/MC1_graph.json').then(graph => {
@@ -39,25 +30,20 @@ export default function Task2Main() {
 
   return (
     <div>
-
-      {/* Style the h2 header */}
       <h4 style={{ position: 'fixed', top: '100px' }}>
         Genre Overview: Parallel Coordinates
       </h4>
 
-      <ParallelPlot data={genreStats} />
+      <ParallelPlot data={genreStats} highlightedGenre={highlightedGenre} />
 
-      {/* <h3>Genres Found ({genreList.length}):</h3> */}
-
-      {/* Scrollable Panel on Right Edge */}
       <div
         style={{
           position: 'fixed',
           top: '246px',
           right: '0',
-          width: '200px', // Thin panel width
+          width: '200px',
           height: 'calc(100vh - 80px)',
-          maxHeight: '50vh', // Max height of the panel
+          maxHeight: '50vh',
           overflowY: 'auto',
           border: '1px solid #ccc',
           backgroundColor: '#f9f9f9',
@@ -65,13 +51,22 @@ export default function Task2Main() {
           boxShadow: '0 0 10px rgba(0, 0, 0, 0.1)',
         }}
       >
-        {/* Title for the genre list */}
         <h4 style={{ textAlign: 'center', marginBottom: '10px' }}>Genre List</h4>
 
-        {/* Genre List */}
-        <ul style={{ listStyleType: 'none', paddingLeft: '0' }}>
+        <ul style={{ listStyleType: 'none', paddingLeft: '0', paddingRight: '10px' }}>
           {genreList.map((genre, idx) => (
-            <li key={idx} style={{ marginBottom: '5px', color: genreColor(genre) }}>
+            <li
+              key={idx}
+              style={{
+                marginBottom: '5px',
+                color: genreColor(genre),
+                fontWeight: genre === highlightedGenre ? 'bold' : 'normal',
+                cursor: 'pointer',
+              }}
+              onClick={() =>
+                setHighlightedGenre(prev => (prev === genre ? null : genre))
+              }
+            >
               {genre}
             </li>
           ))}
@@ -80,4 +75,3 @@ export default function Task2Main() {
     </div>
   );
 }
-

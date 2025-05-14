@@ -8,7 +8,6 @@ const dimensions = [
   'notables',
   'lyricistsAndComposers',
   'artistsAndGroups',
-  // 'groups', // newly added
 ];
 
 function genreColor(genre) {
@@ -29,7 +28,7 @@ function getGenreGroup(genre) {
   return "Other genres";
 }
 
-export default function ParallelPlot({ data }) {
+export default function ParallelPlot({ data, highlightedGenre }) {
   const ref = useRef();
   const legendRef = useRef();
   const tooltipRef = useRef();
@@ -78,10 +77,15 @@ export default function ParallelPlot({ data }) {
       .enter()
       .append("path")
       .attr("d", path)
-      .attr("stroke", d => genreColor(d.genre))
+      .attr("stroke", d => {
+        if (highlightedGenre && d.genre === highlightedGenre) return "#ffffff";
+        return genreColor(d.genre);
+      })
       .attr("stroke-opacity", d => {
         const group = getGenreGroup(d.genre);
-        return selectedGroups[group] ? (group === "Oceanus Folk" ? 1 : 0.75) : 0;
+        if (!selectedGroups[group]) return 0;
+        if (highlightedGenre && d.genre === highlightedGenre) return 1;
+        return group === "Oceanus Folk" ? 1 : 0.75;
       })
       .attr("stroke-width", d => d.genre === "Oceanus Folk" ? 5 : 3)
       .attr("fill", "none")
@@ -90,7 +94,6 @@ export default function ParallelPlot({ data }) {
         const group = getGenreGroup(d.genre);
         if (!selectedGroups[group]) return;
 
-        // Highlight the hovered line
         d3.select(this)
           .raise()
           .attr("stroke", "#ffffff")
@@ -108,9 +111,19 @@ export default function ParallelPlot({ data }) {
         if (!selectedGroups[group]) return;
 
         d3.select(this)
-          .attr("stroke", genreColor(d.genre))
-          .attr("stroke-width", d.genre === "Oceanus Folk" ? 5 : 3) // on hover out parameters
-          .attr("stroke-opacity", group === "Oceanus Folk" ? 1 : 0.75);
+          .attr("stroke", () =>
+            highlightedGenre && d.genre === highlightedGenre
+              ? "#ffffff"
+              : genreColor(d.genre)
+          )
+          .attr("stroke-width", d.genre === "Oceanus Folk" ? 5 : 3)
+          .attr("stroke-opacity", () =>
+            highlightedGenre && d.genre === highlightedGenre
+              ? 1
+              : group === "Oceanus Folk"
+              ? 1
+              : 0.75
+          );
 
         d3.select(tooltipRef.current).style("visibility", "hidden");
       });
@@ -173,7 +186,7 @@ export default function ParallelPlot({ data }) {
       .attr("y", 12)
       .text(d => d.label)
       .style("font-size", "12px");
-  }, [data, selectedGroups]);
+  }, [data, selectedGroups, highlightedGenre]);
 
   return (
     <div>
