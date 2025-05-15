@@ -46,8 +46,8 @@ export default function ParallelPlot({ data, highlightedGenre }) {
     if (!data || data.length === 0) return;
 
     const margin = { top: 30, right: 40, bottom: 10, left: 60 };
-    const width = 1100 - margin.left - margin.right;
-    const height = 300 - margin.top - margin.bottom;
+    const width = 900 - margin.left - margin.right;
+    const height = 200 - margin.top - margin.bottom;
 
     const svg = d3.select(ref.current);
     svg.selectAll("*").remove();

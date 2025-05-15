@@ -81,3 +81,92 @@ export function computeGenreMetrics(nodes, links, yearRange = [0, Infinity]) {
     lyricistsAndComposers: g.lyricists.size + g.composers.size,
   }));
 }
+
+
+
+
+
+
+// export function computeOceanusFolkInfluences(nodes, links, yearRange) {
+//   const nodeById = new Map(nodes.map(n => [n.id, n]));
+//   // const [minYear, maxYear] = yearRange;
+//    const [startYear, endYear] = yearRange;
+
+
+//   // Filter nodes/songs by yearRange, e.g.:
+//   const filteredNodes = nodes.filter(n => {
+//     if (!n.release_date) return false;
+//     const year = parseInt(n.release_date);
+//     return year >= startYear && year <= endYear;
+//   });
+
+//   const relevantTypes = ["DirectlySamples", "CoverOf", "StyleOf", "LyricalReferenceTo"];
+//   const result = {
+//     DirectlySamples: 0,
+//     CoverOf: 0,
+//     StyleOf: 0,
+//     LyricalReferenceTo: 0,
+//   };
+
+//   links.forEach(link => {
+//     if (!relevantTypes.includes(link.edgeType)) return;
+
+//     const sourceNode = nodeById.get(link.source);
+//     const targetNode = nodeById.get(link.target);
+//     if (!sourceNode || sourceNode.genre !== "Oceanus Folk") return;
+
+//     // Make sure there's a valid release year
+//     const year = parseInt(targetNode?.release_date);
+//     if (isNaN(year) || year < minYear || year > maxYear) return;
+
+//     result[link.edgeType]++;
+//   });
+
+//   return result;
+// }
+
+
+
+export function computeOceanusFolkInfluences(nodes, links, yearRange) {
+  const [minYear, maxYear] = yearRange;
+
+  // Normalize nodes with parsed years and genre
+  const normalizedNodes = nodes.map(n => ({
+    ...n,
+    release_date: parseInt(n.release_date),
+    genre: n.genre || null,
+  }));
+
+  // Map for quick node lookup
+  const nodeById = new Map(normalizedNodes.map(n => [n.id, n]));
+
+  // Normalize links with edgeType normalized
+  const normalizedLinks = links.map(link => ({
+    ...link,
+    edgeType: link.edgeType || link["Edge Type"] || null,
+  }));
+
+  const relevantTypes = ["DirectlySamples", "CoverOf", "StyleOf", "LyricalReferenceTo"];
+  const result = {
+    DirectlySamples: 0,
+    CoverOf: 0,
+    StyleOf: 0,
+    LyricalReferenceTo: 0,
+  };
+
+  normalizedLinks.forEach(link => {
+    if (!relevantTypes.includes(link.edgeType)) return;
+
+    const sourceNode = nodeById.get(link.source);
+    const targetNode = nodeById.get(link.target);
+    if (!sourceNode || sourceNode.genre !== "Oceanus Folk") return;
+    if (!targetNode) return;
+
+    const year = targetNode.release_date;
+    if (isNaN(year) || year < minYear || year > maxYear) return;
+
+    result[link.edgeType]++;
+  });
+
+  return result;
+}
