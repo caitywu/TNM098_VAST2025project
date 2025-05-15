@@ -58,12 +58,13 @@ export default function Task2Main() {
       display: 'grid', 
       gridTemplateColumns: '2fr 1fr 1fr', 
       gridTemplateRows: '1fr 1fr', 
-      gap: '8x', 
-      padding: '20px', 
-      height: '100vh', 
+      gap: '3px',       
+      padding: '10px',   
+      height: '86vh',      
       boxSizing: 'border-box',
       position: 'relative' 
     }}>
+
       {/* Top Left: Network Graph (Placeholder) */}
       <div style={{ gridColumn: '1 / 3', gridRow: '1', padding: '10px', borderRadius: '8px' }}>
         <h2>Network Graph</h2>

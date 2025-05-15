@@ -87,44 +87,6 @@ export function computeGenreMetrics(nodes, links, yearRange = [0, Infinity]) {
 
 
 
-// export function computeOceanusFolkInfluences(nodes, links, yearRange) {
-//   const nodeById = new Map(nodes.map(n => [n.id, n]));
-//   // const [minYear, maxYear] = yearRange;
-//    const [startYear, endYear] = yearRange;
-
-
-//   // Filter nodes/songs by yearRange, e.g.:
-//   const filteredNodes = nodes.filter(n => {
-//     if (!n.release_date) return false;
-//     const year = parseInt(n.release_date);
-//     return year >= startYear && year <= endYear;
-//   });
-
-//   const relevantTypes = ["DirectlySamples", "CoverOf", "StyleOf", "LyricalReferenceTo"];
-//   const result = {
-//     DirectlySamples: 0,
-//     CoverOf: 0,
-//     StyleOf: 0,
-//     LyricalReferenceTo: 0,
-//   };
-
-//   links.forEach(link => {
-//     if (!relevantTypes.includes(link.edgeType)) return;
-
-//     const sourceNode = nodeById.get(link.source);
-//     const targetNode = nodeById.get(link.target);
-//     if (!sourceNode || sourceNode.genre !== "Oceanus Folk") return;
-
-//     // Make sure there's a valid release year
-//     const year = parseInt(targetNode?.release_date);
-//     if (isNaN(year) || year < minYear || year > maxYear) return;
-
-//     result[link.edgeType]++;
-//   });
-
-//   return result;
-// }
-
 
 
 export function computeOceanusFolkInfluences(nodes, links, yearRange) {
