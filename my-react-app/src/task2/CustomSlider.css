@@ -1,0 +1,32 @@
+.custom-slider {
+  height: 20px;
+  background: #111;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+}
+
+.custom-track {
+  background: #333;
+  height: 12px;
+  border-radius: 4px;
+}
+
+.custom-thumb {
+  height: 30px;
+  width: 20px;
+  background-color: #eee;
+  border: 2px solid white;
+  border-radius: 6px;
+  cursor: grab;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 4px rgba(255, 255, 255, 0.6);
+}
+
+.custom-thumb::before {
+  content: '⋮';
+  font-size: 16px;
+  color: #555;
+}

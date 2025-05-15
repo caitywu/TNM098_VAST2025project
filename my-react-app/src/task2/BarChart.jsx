@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import * as d3 from 'd3';
 
-export default function OceanusFolkInfluenceBarChart({ data }) {
+export default function OceanusFolkInfluenceBarChart({ data, onBarClick }) {
   const ref = useRef();
 
   useEffect(() => {
@@ -57,15 +57,16 @@ export default function OceanusFolkInfluenceBarChart({ data }) {
       .selectAll("text")
       .style("font-size", "8px");
 
-    g.selectAll("rect")
-      .data(barData)
-      .enter()
-      .append("rect")
-      .attr("x", d => x(d.displayName))
-      .attr("y", d => y(d.count))
-      .attr("width", x.bandwidth())
-      .attr("height", d => y(0) - y(d.count))
-      .attr("fill", "#444");
+      g.selectAll("rect")
+          .data(barData)
+          .enter()
+          .append("rect")
+          .attr("x", d => x(d.displayName))
+          .attr("y", d => y(d.count))
+          .attr("width", x.bandwidth())
+          .attr("height", d => y(0) - y(d.count))
+          .attr("fill", "#444");
+    //   .on("click", d => onBarClick?.(d.type));
   }, [data]);
 
   return <svg ref={ref}></svg>;

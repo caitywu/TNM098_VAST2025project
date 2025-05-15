@@ -28,7 +28,7 @@ function getGenreGroup(genre) {
   return "Other genres";
 }
 
-export default function ParallelPlot({ data, highlightedGenre }) {
+export default function ParallelPlot({ data, highlightedGenre, globalDomain }) {
   const ref = useRef();
   const legendRef = useRef();
   const tooltipRef = useRef();
@@ -47,7 +47,7 @@ export default function ParallelPlot({ data, highlightedGenre }) {
 
     const margin = { top: 30, right: 40, bottom: 10, left: 60 };
     const width = 900 - margin.left - margin.right;
-    const height = 200 - margin.top - margin.bottom;
+    const height = 150 - margin.top - margin.bottom;
 
     const svg = d3.select(ref.current);
     svg.selectAll("*").remove();
@@ -62,7 +62,11 @@ export default function ParallelPlot({ data, highlightedGenre }) {
     for (let dim of dimensions) {
       y[dim] = d3
         .scaleLinear()
-        .domain(d3.extent(data, d => d[dim]))
+        .domain(
+          globalDomain && globalDomain[dim]
+            ? globalDomain[dim]
+            : d3.extent(data, d => d[dim])
+        )
         .range([height, 0]);
     }
 
@@ -87,7 +91,7 @@ export default function ParallelPlot({ data, highlightedGenre }) {
         if (highlightedGenre && d.genre === highlightedGenre) return 1;
         return group === "Oceanus Folk" ? 1 : 0.75;
       })
-      .attr("stroke-width", d => d.genre === "Oceanus Folk" ? 5 : 3)
+      .attr("stroke-width", d => (d.genre === "Oceanus Folk" ? 5 : 3))
       .attr("fill", "none")
       .attr("pointer-events", "visibleStroke")
       .on("mousemove", function (event, d) {
@@ -160,7 +164,8 @@ export default function ParallelPlot({ data, highlightedGenre }) {
 
     const legend = legendSvg.append("g").attr("transform", "translate(20, 20)");
 
-    const items = legend.selectAll("g.legend-item")
+    const items = legend
+      .selectAll("g.legend-item")
       .data(legendData)
       .enter()
       .append("g")
@@ -174,19 +179,21 @@ export default function ParallelPlot({ data, highlightedGenre }) {
         }));
       });
 
-    items.append("rect")
+    items
+      .append("rect")
       .attr("width", 14)
       .attr("height", 14)
       .attr("fill", d => d.color)
-      .attr("stroke", d => selectedGroups[d.label] ? "#ccc" : "none")
+      .attr("stroke", d => (selectedGroups[d.label] ? "#ccc" : "none"))
       .attr("stroke-width", 2);
 
-    items.append("text")
+    items
+      .append("text")
       .attr("x", 20)
       .attr("y", 12)
       .text(d => d.label)
       .style("font-size", "12px");
-  }, [data, selectedGroups, highlightedGenre]);
+  }, [data, selectedGroups, highlightedGenre, globalDomain]);
 
   return (
     <div>

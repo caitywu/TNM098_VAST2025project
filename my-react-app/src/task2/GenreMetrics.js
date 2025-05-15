@@ -132,3 +132,119 @@ export function computeOceanusFolkInfluences(nodes, links, yearRange) {
 
   return result;
 }
+
+
+
+
+
+
+export function getSailorShiftGenres(nodes, links, yearRange = [0, Infinity]) {
+  const [minYear, maxYear] = yearRange;
+  const normalizedNodes = nodes.map(n => ({
+    ...n,
+    nodeType: n.nodeType || n["Node Type"],
+    release_date: parseInt(n.release_date),
+    genre: n.genre || null,
+  }));
+
+  const nodeById = new Map(normalizedNodes.map(n => [n.id, n]));
+
+  const normalizedLinks = links.map(link => ({
+    ...link,
+    edgeType: link.edgeType || link["Edge Type"],
+  }));
+
+  const targetGenres = new Set();
+  const relevantTypes = ["PerformerOf", "ProducerOf", "LyricistOf", "ComposerOf"];
+
+  normalizedLinks.forEach(link => {
+    if (!relevantTypes.includes(link.edgeType)) return;
+
+    const target = nodeById.get(link.target);
+    if (!target || !target.genre) return;
+
+    const year = target.release_date;
+    if (isNaN(year) || year < minYear || year > maxYear) return;
+
+    // Check if source is Sailor Shift
+    if (typeof link.source === "string" && link.source.toLowerCase().includes("sailor shift")) {
+      targetGenres.add(target.genre);
+    }
+
+    const sourceNode = nodeById.get(link.source);
+    if (sourceNode && sourceNode.name && sourceNode.name.toLowerCase().includes("sailor shift")) {
+      targetGenres.add(target.genre);
+    }
+  });
+
+  return Array.from(targetGenres);
+}
+
+
+
+
+
+
+
+
+export function computeGenreInfluenceMatrix(nodes, links, yearRange = [0, Infinity], reverse = false) {
+  const [minYear, maxYear] = yearRange;
+
+  // Normalize nodes
+  const normalizedNodes = nodes.map(n => ({
+    ...n,
+    release_date: parseInt(n.release_date),
+    genre: n.genre || null,
+  }));
+
+  // Map nodes by ID
+  const nodeById = new Map(normalizedNodes.map(n => [n.id, n]));
+
+  // Normalize links
+  const normalizedLinks = links.map(link => ({
+    ...link,
+    edgeType: link.edgeType || link["Edge Type"] || null,
+  }));
+
+  // Get unique genres
+  const genres = Array.from(new Set(normalizedNodes.map(n => n.genre).filter(g => g)));
+
+  // Initialize matrix with zeros
+  const matrix = {};
+  genres.forEach(g1 => {
+    matrix[g1] = {};
+    genres.forEach(g2 => {
+      matrix[g1][g2] = 0;
+    });
+  });
+
+  // Define relevant influence edge types
+  const influenceEdges = ["DirectlySamples", "CoverOf", "StyleOf", "LyricalReferenceTo"];
+
+  normalizedLinks.forEach(link => {
+    if (!influenceEdges.includes(link.edgeType)) return;
+
+    const sourceNode = nodeById.get(link.source);
+    const targetNode = nodeById.get(link.target);
+
+    if (!sourceNode || !targetNode) return;
+    if (isNaN(sourceNode.release_date) || isNaN(targetNode.release_date)) return;
+    if (sourceNode.release_date < minYear || sourceNode.release_date > maxYear) return;
+    if (targetNode.release_date < minYear || targetNode.release_date > maxYear) return;
+
+    const sourceGenre = sourceNode.genre;
+    const targetGenre = targetNode.genre;
+
+    if (!sourceGenre || !targetGenre) return;
+
+    if (reverse) {
+      // Count influence from targetGenre to sourceGenre
+      matrix[targetGenre][sourceGenre]++;
+    } else {
+      // Count influence from sourceGenre to targetGenre
+      matrix[sourceGenre][targetGenre]++;
+    }
+  });
+
+  return { matrix, genres };
+}
