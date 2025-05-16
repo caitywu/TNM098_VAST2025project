@@ -2,8 +2,9 @@ import React, { useEffect, useState } from "react";
 import ArtistSelector from "./ArtistSelector";
 import Graph from "./Graph";
 import CombinedInfo from "./CombinedInfo";
-import TimeSeriesChart from "./TimeSeriesChart";
+//import TimeSeriesChart from "./TimeSeriesChart";
 import EdgeFilter from "./EdgeFilter";
+import TemporalInfluenceChart from "./TemporalInfluencerChart";
 
 const allEdgeTypes = [
   "PerformerOf",
@@ -27,6 +28,7 @@ export default function NetworkGraph() {
   const [graph, setGraph] = useState({ nodes: [], links: [] });
   const [selectedNode, setSelectedNode] = useState(null);
   const [maxHops, setMaxHops] = useState(2); //2 connection per default
+  const [debouncedArtist, setDebouncedArtist] = useState(null);
 
   // load & normalize
   useEffect(() => {
@@ -140,6 +142,12 @@ export default function NetworkGraph() {
     });
   }
 
+  useEffect(() => {
+    const id = selectedNode ? selectedNode.id : null;
+    const tid = setTimeout(() => setDebouncedArtist(id), 300);
+    return () => clearTimeout(tid);
+  }, [selectedNode]);
+
   function selectAllEdges() {
     setVisibleEdgeTypes(new Set(allEdgeTypes));
   }
@@ -160,6 +168,7 @@ export default function NetworkGraph() {
       setSelectedNode(null);
     }
   };
+
 
   return (
     <div
@@ -208,7 +217,7 @@ export default function NetworkGraph() {
           <Graph
             graph={graph}
             selectedArtistIds={selectedArtistIds}
-            selectedNodeId={selectedNode?.id}
+            selectedNodeId={debouncedArtist}
             visibleEdgeTypes={visibleEdgeTypes}
             onNodeClick={handleNodeClick}
           />
@@ -242,7 +251,11 @@ export default function NetworkGraph() {
             padding: "0.5rem",
           }}
         >
-          <TimeSeriesChart nodes={data?.nodes || []} />
+<TemporalInfluenceChart
+  graph={graph}
+  selectedNodeId={debouncedArtist}
+/>
+
         </div>
 
         <div style={{ flex: 1, overflow: "auto", padding: "0.5rem" }}>

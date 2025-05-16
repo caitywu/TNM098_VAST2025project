@@ -27,36 +27,28 @@ export default function Graph({
   const simRef     = useRef()
   const zoomRef = useRef()
   const tooltipRef = useRef()
+  const width = 800, height = 600
 
+  // build zoom once
   useEffect(() => {
     zoomRef.current = d3.zoom()
-      .scaleExtent([0.1, 5])
-      .on('zoom', e => {
-        // apply transform to the inner <g>
+      .scaleExtent([0.1,5])
+      .on('zoom', e =>
         d3.select(svgRef.current).select('g')
           .attr('transform', e.transform)
-      })
-  }, [])
+      )
+  },[])
 
-  const width  = 800
-  const height = 600
-
-  // Create the tooltip div once
+  // tooltip once
   useEffect(() => {
     if (!tooltipRef.current) {
       tooltipRef.current = d3.select('body')
         .append('div')
         .attr('class','edge-tooltip')
-        .style('position','absolute')
-        .style('padding','4px 8px')
-        .style('background','rgba(0,0,0,0.7)')
-        .style('color','#fff')
-        .style('border-radius','4px')
-        .style('pointer-events','none')
+        .style('position','absolute') /* etc… */
         .style('visibility','hidden')
     }
-  }, [])
-  
+  },[])
 
   useEffect(() => {
     if (!graph.nodes.length) return
@@ -140,11 +132,11 @@ export default function Graph({
       )
       .join('path')
         .attr('fill','none')
-        .attr('stroke-width', 2)
+        .attr('stroke-width', 1)
         .attr('stroke', d =>
           `url(#grad-${d.source.id}-${d.target.id}-${d['Edge Type']})`
         )
-        .style('opacity', 0.7)
+        .style('opacity', 0.6)
         .on('mouseover', (e,d) => {
           const src = d.source.name || d.source.stage_name || d.source.id
      const tgt = d.target.name || d.target.stage_name || d.target.id
