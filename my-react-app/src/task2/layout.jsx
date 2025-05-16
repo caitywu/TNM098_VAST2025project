@@ -20,8 +20,9 @@ export default function Layout() {
       >
         <h1 style={{ margin: 0 }}>Musical Network</h1>
         <nav style={{ marginTop: '0.5rem' }}>
-          <Link to="/" style={{ marginRight: '1rem' }}>Network Graph</Link>
-          <Link to="/task2">Genre Analysis</Link>
+          <Link to="/" style={{ marginRight: '2rem' }}>Network Graph</Link>
+          <Link to="/task2" style={{ marginRight: '2rem' }}>Genre Analysis</Link>
+          <Link to="/matrix">Genre Matrices</Link>
         </nav>
       </header>
 
