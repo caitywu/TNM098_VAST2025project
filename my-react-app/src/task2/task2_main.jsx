@@ -5,11 +5,13 @@ import {
   computeGenreMetrics,
   computeOceanusFolkInfluences,
   getSailorShiftGenres,
+  computeGenreYearlyTotals
 } from './GenreMetrics';
 import ParallelPlot from './ParallelPlot';
 import OceanusFolkInfluenceBarChart from './BarChart';
 import ReactSlider from 'react-slider';
 import NotableArtistNetworkGraph from './NotableArtistNetwork';
+import StackedHistogram from './Historgram';
 import './CustomSlider.css';
 
 const dimensions = [
@@ -39,6 +41,8 @@ export default function Task2Main() {
   const [influenceData, setInfluenceData] = useState(null);
   const [showSailorShiftGenres, setShowSailorShiftGenres] = useState(false);
   const [globalDomain, setGlobalDomain] = useState(null);
+  const [yearlyGenreTotals, setYearlyGenreTotals] = useState(null);
+
 
   const [selectedInfluenceTypes, setSelectedInfluenceTypes] = useState(new Set([
     "InStyleOf",
@@ -63,6 +67,9 @@ export default function Task2Main() {
 
       setMinMaxYear([minYear, maxYear]);
       setSelectedYear(minYear);
+
+        const totals = computeGenreYearlyTotals(graph.nodes, [minYear, maxYear]);
+        setYearlyGenreTotals(totals);
 
       const fullGenreStats = computeGenreMetrics(graph.nodes, graph.links, [minYear, maxYear]);
       setGlobalDomain(() => {
@@ -222,6 +229,20 @@ export default function Task2Main() {
         </div>
       </div>
 
+      {yearlyGenreTotals && (
+        <div style={{
+          position: 'fixed',
+          bottom: '40px',
+          left: '50%',
+          transform: 'translateX(-53%)',
+          width: '40%',
+          borderRadius: '4px',
+        }}>
+      <StackedHistogram data={yearlyGenreTotals} width={620} height={80} />
+      </div>
+      )}
+
+
       {/* Year Slider */}
       <div style={{
         position: 'absolute',
@@ -231,9 +252,7 @@ export default function Task2Main() {
         width: '40%',
         padding: '10px',
       }}>
-        <label style={{ color: '#000', fontWeight: 'bold' }}>
-          Year: {selectedYear}
-        </label>
+        {/* Scented widget for time slider*/}
         <ReactSlider
           className="custom-slider"
           thumbClassName="custom-thumb"
@@ -243,6 +262,14 @@ export default function Task2Main() {
           value={selectedYear}
           onChange={setSelectedYear}
         />
+        <div style={{
+  color: '#000',
+  fontWeight: 'bold',
+  textAlign: 'center',
+  transform: 'translateY(20px)',
+}}>
+  Year: {selectedYear}
+</div>
       </div>
     </div>
   );
