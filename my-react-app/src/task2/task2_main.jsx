@@ -1,4 +1,4 @@
-// Imports remain the same...
+// main task 2
 import React, { useEffect, useState } from 'react';
 import { loadGraphData } from './dataLoader';
 import {
@@ -12,6 +12,8 @@ import OceanusFolkInfluenceBarChart from './BarChart';
 import ReactSlider from 'react-slider';
 import NotableArtistNetworkGraph from './NotableArtistNetwork';
 import StackedHistogram from './Historgram';
+import InfluenceTypeStackedHistogram from './InfluenceTypeHistogram';
+import { computeOceanusFolkInfluenceTypeCounts } from './InfluenceTypeHistogram';
 import './CustomSlider.css';
 
 const dimensions = [
@@ -42,6 +44,8 @@ export default function Task2Main() {
   const [showSailorShiftGenres, setShowSailorShiftGenres] = useState(false);
   const [globalDomain, setGlobalDomain] = useState(null);
   const [yearlyGenreTotals, setYearlyGenreTotals] = useState(null);
+  
+  const [influenceTypeData, setInfluenceTypeData] = useState(null);
 
 
   const [selectedInfluenceTypes, setSelectedInfluenceTypes] = useState(new Set([
@@ -53,6 +57,7 @@ export default function Task2Main() {
 
   const yearRange = [selectedYear, selectedYear];
 
+  // effect to load graph data
   useEffect(() => {
     loadGraphData('/MC1_graph.json').then(graph => {
       setData(graph);
@@ -83,6 +88,7 @@ export default function Task2Main() {
     });
   }, []);
 
+  // effect to compute genre metrics and influence data
   useEffect(() => {
     if (!data) return;
 
@@ -97,6 +103,19 @@ export default function Task2Main() {
 
     setInfluenceData(computeOceanusFolkInfluences(data.nodes, data.links, yearRange));
   }, [selectedYear, data, showSailorShiftGenres]);
+
+  // effect to compute influence type data 
+  useEffect(() => {
+  if (!data) return;
+
+  const counts = computeOceanusFolkInfluenceTypeCounts(
+    data.nodes,
+    data.links,
+    selectedInfluenceTypes,
+    minMaxYear // or yearRange
+  );
+  setInfluenceTypeData(counts);
+}, [data, selectedInfluenceTypes, minMaxYear]);
 
   const genreList = genreStats.map(g => g.genre).sort();
 
@@ -115,7 +134,7 @@ export default function Task2Main() {
     <div
       style={{
         display: 'grid',
-        gridTemplateColumns: '2fr 1fr 1fr',
+        gridTemplateColumns: '2fr 1fr 2fr',
         gridTemplateRows: '1fr 1fr',
         gap: '3px',
         padding: '10px',
@@ -125,11 +144,11 @@ export default function Task2Main() {
       }}
     >
       {/* Top Left: Network */}
-      <div style={{ gridColumn: '1 / 3', gridRow: '1', padding: '10px', borderRadius: '8px', overflow: 'auto' }}>
-        <h2>Network</h2>
-        <div style={{ marginBottom: '10px' }}>
+      <div style={{ gridColumn: '1 / 3', gridRow: '1', padding: '5px', borderRadius: '1px', overflow: 'auto' }}>
+        <h4>Network</h4>
+        <div style={{ marginBottom: '5px', fontSize: '8px' }}>
           {["InStyleOf", "DirectlySamples", "CoverOf", "LyricalReferenceTo"].map(type => (
-            <label key={type} style={{ marginRight: '15px' }}>
+            <label key={type} style={{ marginRight: '1px' }}>
               <input
                 type="checkbox"
                 checked={selectedInfluenceTypes.has(type)}
@@ -160,26 +179,23 @@ export default function Task2Main() {
       </div>
 
       {/* Top Right: Info Box */}
-      <div style={{ gridColumn: '3', gridRow: '1', padding: '10px', borderRadius: '8px', overflowY: 'auto' }}>
-        <h2>Info Box</h2>
+      <div style={{ gridColumn: '3', gridRow: '1', padding: '1px', borderRadius: '2px', overflowY: 'auto' }}>
+          <h4>Oceanus Folk Outgoing Influences</h4>
+          <InfluenceTypeStackedHistogram data={influenceTypeData} width={200} height={270} yearRange={[1975, 2040]} />
       </div>
 
-      {/* Bottom Left: Parallel Plot */}
-      <div style={{ gridColumn: '1', gridRow: '2', padding: '3px', borderRadius: '8px', maxWidth: '1300px' }}>
-        <h2>Parallel Plot</h2>
-        <ParallelPlot data={genreStats} highlightedGenre={highlightedGenre} globalDomain={dynamicDomain} />
-        <div style={{ marginTop: '10px' }}>
-          <label>
-            <input
-              type="checkbox"
-              checked={showSailorShiftGenres}
-              onChange={() => setShowSailorShiftGenres(prev => !prev)}
-              style={{ marginRight: '6px' }}
-            />
-            Show Only Sailor Shift Genres
-          </label>
-        </div>
-      </div>
+      {/* Bottom Left: Histogram */}
+      <div style={{ gridColumn: '1', gridRow: '2', padding: '10px', borderRadius: '8px', maxWidth: '1000px' }}>
+  <h4>Stacked Histogram</h4>
+  {yearlyGenreTotals ? (
+          <StackedHistogram
+            data={yearlyGenreTotals}
+            width={950} height={170}
+           highlightedGenre={highlightedGenre}/>
+  ) : (
+    <p>Loading histogram data...</p>
+  )}
+</div>
 
       {/* Bottom Middle: Genre List */}
       <div style={{
@@ -220,36 +236,26 @@ export default function Task2Main() {
         flexDirection: 'column',
         gap: '10px'
       }}>
-        <div style={{ flex: 1, padding: '10px', borderRadius: '8px' }}>
-          <h4>Oceanus Folk Outgoing Influence Types</h4>
-          <OceanusFolkInfluenceBarChart data={influenceData} />
-        </div>
-        <div style={{ flex: 1, padding: '10px', borderRadius: '8px' }}>
-          <h4>Oceanus Folk Over Time</h4>
-        </div>
-      </div>
+        {/* <div style={{ flex: 1, padding: '10px', borderRadius: '8px' }}> */}
+          {/* <h4>Oceanus Folk Outgoing Influences</h4> */}
+          {/* <OceanusFolkInfluenceBarChart data={influenceData} /> */}
+          {/* <h4> Placeholder </h4>
+        </div> */}
 
-      {yearlyGenreTotals && (
-        <div style={{
-          position: 'fixed',
-          bottom: '40px',
-          left: '50%',
-          transform: 'translateX(-53%)',
-          width: '40%',
-          borderRadius: '4px',
-        }}>
-      <StackedHistogram data={yearlyGenreTotals} width={620} height={80} />
+        
+        {/* <div style={{ flex: 1, padding: '10px', borderRadius: '8px' }}>
+          <h4>Oceanus Folk Over Time</h4>
+        </div> */}
       </div>
-      )}
 
 
       {/* Year Slider */}
       <div style={{
         position: 'absolute',
         bottom: '10px',
-        left: '50%',
+        left: '33.5%',
         transform: 'translateX(-50%)',
-        width: '40%',
+        width: '60%',
         padding: '10px',
       }}>
         {/* Scented widget for time slider*/}

@@ -12,9 +12,9 @@ export default function Layout() {
           top: 0,
           left: 0,
           right: 0,
-          zIndex: 1000,
+          zIndex: 500,
           backgroundColor: '#f4f4f4',
-          padding: '1rem 2rem',
+          padding: '1rem 1rem',
           boxShadow: '0 2px 5px rgba(0,0,0,0.1)',
         }}
       >

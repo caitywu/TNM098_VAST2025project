@@ -2,9 +2,8 @@ import { max } from 'd3';
 import React, { useMemo } from 'react';
 import ForceGraph2D from 'react-force-graph-2d';
 
-// Use your genreColor function here
 function genreColor(genre) {
-  if (!genre) return "#999"; // fallback color
+  if (!genre) return "#999";
   if (genre === "Oceanus Folk") return "red";
   if (genre.toLowerCase().endsWith("rock")) return "#1f77b4";
   if (genre.toLowerCase().endsWith("folk")) return "#2ca02c";
@@ -71,12 +70,46 @@ function NotableArtistNetworkGraph({ nodes, links, yearRange, selectedInfluenceT
     links.forEach(link => {
       const edgeType = link.edgeType || link["Edge Type"];
       if (edgeType !== "PerformerOf") return;
+
+      const performedNode = nodeById.get(link.target);
+      if (!performedNode) return;
+
+      const genre = performedNode.genre;
+      const isNotable = performedNode.notable;
+      if (genre !== "Oceanus Folk" && !isNotable) return;
+
       if (!influenceTargets.has(link.target)) return;
 
       performers.add(link.source);
     });
     return performers;
-  }, [links, influenceTargets]);
+  }, [links, influenceTargets, nodeById]);
+
+  const performedOceanusSongs = useMemo(() => {
+    const songIds = new Set();
+    links.forEach(link => {
+      const edgeType = link.edgeType || link["Edge Type"];
+      if (edgeType !== "PerformerOf") return;
+
+      if (oceanusFolkPerformers.has(link.source) && influenceSources.has(link.target)) {
+        songIds.add(link.target);
+      }
+    });
+    return songIds;
+  }, [links, oceanusFolkPerformers, influenceSources]);
+
+  const performedInfluencedSongs = useMemo(() => {
+    const songIds = new Set();
+    links.forEach(link => {
+      const edgeType = link.edgeType || link["Edge Type"];
+      if (edgeType !== "PerformerOf") return;
+
+      if (influencedPerformers.has(link.source) && influenceTargets.has(link.target)) {
+        songIds.add(link.target);
+      }
+    });
+    return songIds;
+  }, [links, influencedPerformers, influenceTargets]);
 
   const graphNodes = useMemo(() => {
     const nodesSet = new Map();
@@ -86,66 +119,75 @@ function NotableArtistNetworkGraph({ nodes, links, yearRange, selectedInfluenceT
       if (n) nodesSet.set(id, { id, name: n.name || id, group: "oceanusFolkSource", genre: n.genre });
     });
 
-      oceanusFolkPerformers.forEach(id => {
-  const n = nodeById.get(id);
-  if (!n) return;
-
-  // Find one song they performed
-  const performedLink = links.find(
-    l => (l.edgeType || l["Edge Type"]) === "PerformerOf" &&
-         l.source === id &&
-         influenceSources.has(l.target)
-  );
-  const songNode = performedLink ? nodeById.get(performedLink.target) : null;
-  const genre = songNode?.genre || null;
-
-  nodesSet.set(id, { id, name: n.name || id, group: "performer", genre });
-});
-
-    influenceTargets.forEach(id => {
+    oceanusFolkPerformers.forEach(id => {
       const n = nodeById.get(id);
-      if (n) nodesSet.set(id, { id, name: n.name || id, group: "target", genre: n.genre });
+      if (!n) return;
+
+      const songLink = links.find(link =>
+        (link.edgeType || link["Edge Type"]) === "PerformerOf" &&
+        link.source === id &&
+        influenceSources.has(link.target)
+      );
+
+      const songNode = songLink ? nodeById.get(songLink.target) : null;
+      const genre = songNode?.genre || n.genre;
+
+      nodesSet.set(id, { id, name: n.name || id, group: "performer", genre });
     });
 
-      influencedPerformers.forEach(id => {
-  const n = nodeById.get(id);
-  if (!n) return;
+    influencedPerformers.forEach(id => {
+      const n = nodeById.get(id);
+      if (!n) return;
 
-  const performedLink = links.find(
-    l => (l.edgeType || l["Edge Type"]) === "PerformerOf" &&
-         l.source === id &&
-         influenceTargets.has(l.target)
-  );
-  const songNode = performedLink ? nodeById.get(performedLink.target) : null;
-  const genre = songNode?.genre || null;
+      const songLink = links.find(link =>
+        (link.edgeType || link["Edge Type"]) === "PerformerOf" &&
+        link.source === id &&
+        influenceTargets.has(link.target)
+      );
 
-  nodesSet.set(id, { id, name: n.name || id, group: "influencedPerformer", genre });
-});
+      const songNode = songLink ? nodeById.get(songLink.target) : null;
+      const genre = songNode?.genre || n.genre;
+
+      nodesSet.set(id, { id, name: n.name || id, group: "influencedPerformer", genre });
+    });
+
+    performedOceanusSongs.forEach(id => {
+      const n = nodeById.get(id);
+      if (n) nodesSet.set(id, { id, name: n.name || id, group: "song", genre: n.genre });
+    });
+
+    performedInfluencedSongs.forEach(id => {
+      const n = nodeById.get(id);
+      if (n) nodesSet.set(id, { id, name: n.name || id, group: "song", genre: n.genre });
+    });
 
     return Array.from(nodesSet.values());
-  }, [influenceSources, oceanusFolkPerformers, influenceTargets, influencedPerformers, nodeById]);
+  }, [nodeById, links, influenceSources, oceanusFolkPerformers, influencedPerformers, performedOceanusSongs, performedInfluencedSongs, influenceTargets]);
+
+  const validNodeIds = useMemo(() => new Set(graphNodes.map(n => n.id)), [graphNodes]);
 
   const graphLinks = useMemo(() => {
     return links.filter(link => {
       const edgeType = link.edgeType || link["Edge Type"];
+      const sourceInSet = validNodeIds.has(link.source);
+      const targetInSet = validNodeIds.has(link.target);
+
+      if (!sourceInSet || !targetInSet) return false;
 
       if (edgeType === "PerformerOf") {
-        if (influenceSources.has(link.target) && oceanusFolkPerformers.has(link.source)) return true;
-        if (influenceTargets.has(link.target) && influencedPerformers.has(link.source)) return true;
-        return false;
+        return (
+          (influenceSources.has(link.target) && oceanusFolkPerformers.has(link.source)) ||
+          (influenceTargets.has(link.target) && influencedPerformers.has(link.source))
+        );
       }
 
-      if (selectedInfluenceTypes.has(edgeType)) {
-        return influenceSources.has(link.source) && influenceTargets.has(link.target);
-      }
-
-      return false;
+      return selectedInfluenceTypes.has(edgeType);
     }).map(link => ({
       source: link.source,
       target: link.target,
       edgeType: link.edgeType || link["Edge Type"]
     }));
-  }, [links, influenceSources, oceanusFolkPerformers, influenceTargets, influencedPerformers, selectedInfluenceTypes]);
+  }, [links, validNodeIds, influenceSources, oceanusFolkPerformers, influenceTargets, influencedPerformers, selectedInfluenceTypes]);
 
   const legendStyle = {
     display: 'flex',
@@ -172,51 +214,18 @@ function NotableArtistNetworkGraph({ nodes, links, yearRange, selectedInfluenceT
         <div>
           <span
             style={{
-              ...shapeStyle,
-              backgroundColor: genreColor("Oceanus Folk"),
-              borderRadius: '50%',
-              display: 'inline-block',
-            }}
-          ></span>
-          Oceanus Folk Performer
-        </div>
-
-        <div>
-          <span
-            style={{
-              ...shapeStyle,
-              backgroundColor: genreColor("Oceanus Folk"),
-              display: 'inline-block',
-              clipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)', // square
-            }}
-          ></span>
-          Oceanus Folk Song/Album
-        </div>
-
-        <div>
-          <span
-            style={{
-              ...shapeStyle,
-              backgroundColor: genreColor("Rock"), // example: adjust as needed for influenced target genre
-              borderRadius: '50%',
-              display: 'inline-block',
-            }}
-          ></span>
-          Influenced Song/Album
-        </div>
-
-        <div>
-          <span
-            style={{
-              ...shapeStyle,
-              backgroundColor: genreColor("Rock"), // example for influenced performer genre
-              display: 'inline-block',
-              clipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)', // square
-            }}
-          ></span>
-          Performer of Influenced Song/Album 
-        </div>
-      </div>
+            ...shapeStyle,
+            backgroundColor: '#666', 
+            clipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)',
+          }}></span> Song/Album </div>
+    <div>
+    <span
+      style={{
+        ...shapeStyle,
+        backgroundColor: '#666',
+        borderRadius: '50%', 
+      }}></span> Artist/Music Group </div>
+    </div>
 
       <ForceGraph2D
         graphData={{ nodes: graphNodes, links: graphLinks }}
@@ -227,18 +236,12 @@ function NotableArtistNetworkGraph({ nodes, links, yearRange, selectedInfluenceT
           const fontSize = 12 / globalScale;
           ctx.font = `${fontSize}px Sans-Serif`;
 
-          // Use genre color for nodes
           const color = genreColor(node.genre);
-
           ctx.fillStyle = color;
 
-          // Draw square for song/album nodes, circle for artists/groups (adjust as needed)
-          // Here I assume nodeType or group could determine shape; modify logic if needed.
-          // Let's say: squares for songs/albums, circles for artists/groups
-
-          const squareGroups = new Set(["oceanusFolkSource", "influencedPerformer"]);
+          const squareGroups = new Set(["song"]);
           if (squareGroups.has(node.group)) {
-            const size = 6;
+            const size = 10;
             ctx.fillRect(node.x - size / 2, node.y - size / 2, size, size);
           } else {
             ctx.beginPath();
@@ -246,16 +249,15 @@ function NotableArtistNetworkGraph({ nodes, links, yearRange, selectedInfluenceT
             ctx.fill();
           }
 
-          // Draw label
-          ctx.fillStyle = "black";
+          ctx.fillStyle = "#4d4d4d";
           ctx.fillText(label, node.x + 6, node.y + 3);
         }}
-        linkDirectionalArrowLength={4}
+        linkDirectionalArrowLength={15}
         linkDirectionalArrowRelPos={1}
         width={700}
         height={250}
         linkWidth={link => selectedInfluenceTypes.has(link.edgeType) ? 3 : 1.5}
-        linkColor={link => selectedInfluenceTypes.has(link.edgeType) ? 'black' : '#ddd'}
+        linkColor={link => selectedInfluenceTypes.has(link.edgeType) ? 'white' : '#4d4d4d'}
       />
     </div>
   );
