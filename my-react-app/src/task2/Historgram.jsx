@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import * as d3 from 'd3';
 
+// Functions to get genre colors and families
 function genreColor(genre) {
   if (genre === "Oceanus Folk") return "red";
   if (genre.toLowerCase().endsWith("rock")) return "#1f77b4";
@@ -24,6 +25,7 @@ export default function StackedHistogram({ data, width = 800, height = 120, high
   const tooltipRef = useRef();
   const legendRef = useRef();
 
+  // State to manage genre groups selection
   const [selectedGroups, setSelectedGroups] = useState({
     Rock: true,
     Folk: true,
@@ -53,12 +55,13 @@ export default function StackedHistogram({ data, width = 800, height = 120, high
     const margin = { top: 10, right: 20, bottom: 20, left: 40 };
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
-
+    
     const years = Object.keys(data).map(d => +d).sort((a, b) => a - b);
     const genres = Array.from(
       new Set(Object.values(data).flatMap(yearData => Object.keys(yearData)))
     );
 
+    // Create a stack layout for each year on all genres
     const stackData = years.map(year => {
       const yearData = data[year];
       const entry = { year };
@@ -69,6 +72,7 @@ export default function StackedHistogram({ data, width = 800, height = 120, high
       return entry;
     });
 
+    // Filter out genres that are not selected
     const stack = d3.stack().keys(genres);
     const series = stack(stackData);
 
@@ -97,9 +101,10 @@ export default function StackedHistogram({ data, width = 800, height = 120, high
         const group = getGenreGroup(d.key);
         const isSelected = selectedGroups[group];
         const isHighlighted = highlightedGenre && d.key === highlightedGenre;
-
-        if (!isSelected) return "white"; // deselected genres turn white
-        if (isHighlighted) return "white"; // highlighted genre also white
+        
+        // Highlight the selected genre
+        if (!isSelected) return "white";
+        if (isHighlighted) return "white";
         return genreColor(d.key);
       })
       .style("opacity", d =>
@@ -114,9 +119,9 @@ export default function StackedHistogram({ data, width = 800, height = 120, high
       .attr("height", d => y(d[0]) - y(d[1]))
       .attr("width", x.bandwidth())
       .on("mouseover", (event, d) => {
-        const color = genreColor(d.key);
-        const count = d.data[d.key] || 0;
-        tooltip
+      const color = genreColor(d.key);
+      const count = d.data[d.key] || 0;
+      tooltip
           .style("visibility", "visible")
           .style("color", color)
           .html(`<strong>${d.key}</strong><br/># of activities: ${count}`);
@@ -139,7 +144,7 @@ export default function StackedHistogram({ data, width = 800, height = 120, high
       .call(d3.axisBottom(x).tickValues(years.filter((_, i) => i % 5 === 0)))
       .attr("font-size", "10px");
 
-    // LEGEND
+    // Legend at the bottom
     const legendSvg = d3.select(legendRef.current);
     const legendWidth = 1000;
     const legendHeight = 60;

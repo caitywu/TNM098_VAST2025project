@@ -1,3 +1,4 @@
+// Function to compute genre counts 
 export function computeGenreMetrics(nodes, links, yearRange = [0, Infinity]) {
   const genreStats = {};
   const [minYear, maxYear] = yearRange;
@@ -15,7 +16,7 @@ export function computeGenreMetrics(nodes, links, yearRange = [0, Infinity]) {
     edgeType: link.edgeType || link["Edge Type"] || null,
   }));
 
-  // First pass: process all nodes (songs & albums)
+  // First pass: process all nodes (songs & albums) --> faster processing
   normalizedNodes.forEach(node => {
     const { genre, nodeType, release_date, notable } = node;
     if (!genre || isNaN(release_date) || release_date < minYear || release_date > maxYear) return;
@@ -43,7 +44,7 @@ export function computeGenreMetrics(nodes, links, yearRange = [0, Infinity]) {
     }
   });
 
-  // Second pass: process all links
+  // Second pass: process all links --> go through all edges to find nodes
   normalizedLinks.forEach(link => {
     const target = nodeById.get(link.target);
     if (!target || !target.genre) return;
@@ -71,6 +72,7 @@ export function computeGenreMetrics(nodes, links, yearRange = [0, Infinity]) {
     }
   });
 
+  // Return the respective genre counts 
   return Object.values(genreStats).map(g => ({
     genre: g.genre,
     songs: g.songs,
@@ -83,7 +85,7 @@ export function computeGenreMetrics(nodes, links, yearRange = [0, Infinity]) {
 }
 
 
-
+// Function to compute yearly genre totals
 export function computeGenreYearlyTotals(nodes, yearRange = [0, Infinity]) {
   const [minYear, maxYear] = yearRange;
   const yearlyGenreData = {};
@@ -121,55 +123,7 @@ export function computeGenreYearlyTotals(nodes, yearRange = [0, Infinity]) {
 
 
 
-
-
-// export function computeOceanusFolkInfluences(nodes, links, yearRange) {
-//   const [minYear, maxYear] = yearRange;
-
-//   // Normalize nodes with parsed years and genre
-//   const normalizedNodes = nodes.map(n => ({
-//     ...n,
-//     release_date: parseInt(n.release_date),
-//     genre: n.genre || null,
-//   }));
-
-//   // Map for quick node lookup
-//   const nodeById = new Map(normalizedNodes.map(n => [n.id, n]));
-
-//   // Normalize links with edgeType normalized
-//   const normalizedLinks = links.map(link => ({
-//     ...link,
-//     edgeType: link.edgeType || link["Edge Type"] || null,
-//   }));
-
-//   const relevantTypes = ["DirectlySamples", "CoverOf", "StyleOf", "LyricalReferenceTo"];
-//   const result = {
-//     DirectlySamples: 0,
-//     CoverOf: 0,
-//     StyleOf: 0,
-//     LyricalReferenceTo: 0,
-//   };
-
-//   normalizedLinks.forEach(link => {
-//     if (!relevantTypes.includes(link.edgeType)) return;
-
-//     const sourceNode = nodeById.get(link.source);
-//     const targetNode = nodeById.get(link.target);
-//     if (!sourceNode || sourceNode.genre !== "Oceanus Folk") return;
-//     if (!targetNode) return;
-
-//     const year = targetNode.release_date;
-//     if (isNaN(year) || year < minYear || year > maxYear) return;
-
-//     result[link.edgeType]++;
-//   });
-
-//   return result;
-// }
-
-
-
-
+// Function to compute Oceanus Folk influences
 export function computeOceanusFolkInfluences(nodes, links, yearRange) {
   const [minYear, maxYear] = yearRange;
 
@@ -186,7 +140,7 @@ export function computeOceanusFolkInfluences(nodes, links, yearRange) {
     edgeType: link.edgeType || link["Edge Type"] || null,
   }));
 
-  const relevantEdgeTypes = ["DirectlySamples", "CoverOf", "StyleOf", "LyricalReferenceTo"];
+  const relevantEdgeTypes = ["DirectlySamples", "CoverOf", "StyleOf", "LyricalReferenceTo", "InterpolatesFrom"];
 
   // Identify Oceanus Folk sources in the year range
   const oceanusFolkSources = new Set(
@@ -202,11 +156,12 @@ export function computeOceanusFolkInfluences(nodes, links, yearRange) {
 
   // Tally influence types where source is Oceanus Folk
   const influenceCounts = {
-    DirectlySamples: 0,
-    CoverOf: 0,
-    StyleOf: 0,
-    LyricalReferenceTo: 0,
-  };
+  DirectlySamples: 0,
+  CoverOf: 0,
+  StyleOf: 0,
+  LyricalReferenceTo: 0,
+  InterpolatesFrom: 0
+  }
 
   for (const link of normalizedLinks) {
     if (!relevantEdgeTypes.includes(link.edgeType)) continue;
@@ -227,7 +182,7 @@ export function computeOceanusFolkInfluences(nodes, links, yearRange) {
 
 
 
-
+// Funcntion to filter out sailor shift genres
 export function getSailorShiftGenres(nodes, links, yearRange = [0, Infinity]) {
   const [minYear, maxYear] = yearRange;
   const normalizedNodes = nodes.map(n => ({
@@ -276,7 +231,7 @@ export function getSailorShiftGenres(nodes, links, yearRange = [0, Infinity]) {
 
 
 
-
+// Function to compute genre influence matrix to and from oceanus folk
 export function computeGenreInfluenceMatrix(nodes, links, yearRange = [0, Infinity], reverse = false) {
   const [minYear, maxYear] = yearRange;
 
@@ -309,7 +264,8 @@ export function computeGenreInfluenceMatrix(nodes, links, yearRange = [0, Infini
   });
 
   // Define relevant influence edge types
-  const influenceEdges = ["DirectlySamples", "CoverOf", "StyleOf", "LyricalReferenceTo"];
+  const influenceEdges = ["DirectlySamples", "CoverOf", "StyleOf", "LyricalReferenceTo", "InterpolatesFrom"];
+
 
   normalizedLinks.forEach(link => {
     if (!influenceEdges.includes(link.edgeType)) return;
