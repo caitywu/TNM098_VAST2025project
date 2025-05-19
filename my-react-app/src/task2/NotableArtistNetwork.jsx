@@ -1,5 +1,6 @@
 import { max } from 'd3';
-import React, { useMemo } from 'react';
+import { forceCollide } from 'd3-force';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import ForceGraph2D from 'react-force-graph-2d';
 
 function genreColor(genre) {
@@ -12,8 +13,10 @@ function genreColor(genre) {
   return "#000000";
 }
 
-function NotableArtistNetworkGraph({ nodes, links, yearRange, selectedInfluenceTypes }) {
+function NotableArtistNetworkGraph({ nodes, links, yearRange, selectedInfluenceTypes, minNotables }) {
+
   const [minYear, maxYear] = yearRange;
+
 
   const normalizedNodes = useMemo(() =>
     nodes.map(n => ({
@@ -52,6 +55,24 @@ function NotableArtistNetworkGraph({ nodes, links, yearRange, selectedInfluenceT
     return targets;
   }, [links, selectedInfluenceTypes, influenceSources]);
 
+
+  // Filter on # notables
+  const performerNotableCounts = useMemo(() => {
+  const counts = new Map();
+  links.forEach(link => {
+    const edgeType = link.edgeType || link["Edge Type"];
+    if (edgeType !== "PerformerOf") return;
+
+    const performer = link.source;
+    const work = nodeById.get(link.target);
+    if (!work || !work.notable) return;
+
+    counts.set(performer, (counts.get(performer) || 0) + 1);
+  });
+  return counts;
+}, [links, nodeById]);
+
+
   const oceanusFolkPerformers = useMemo(() => {
     const performers = new Set();
     links.forEach(link => {
@@ -66,24 +87,29 @@ function NotableArtistNetworkGraph({ nodes, links, yearRange, selectedInfluenceT
   }, [links, influenceSources]);
 
   const influencedPerformers = useMemo(() => {
-    const performers = new Set();
-    links.forEach(link => {
-      const edgeType = link.edgeType || link["Edge Type"];
-      if (edgeType !== "PerformerOf") return;
+  const performers = new Set();
+  links.forEach(link => {
+    const edgeType = link.edgeType || link["Edge Type"];
+    if (edgeType !== "PerformerOf") return;
 
-      const performedNode = nodeById.get(link.target);
-      if (!performedNode) return;
+    const performedNode = nodeById.get(link.target);
+    if (!performedNode) return;
 
-      const genre = performedNode.genre;
-      const isNotable = performedNode.notable;
-      if (genre !== "Oceanus Folk" && !isNotable) return;
+    const genre = performedNode.genre;
+    const isNotable = performedNode.notable;
 
-      if (!influenceTargets.has(link.target)) return;
+    if (!isNotable && genre !== "Oceanus Folk") return;
+    if (!influenceTargets.has(link.target)) return;
 
-      performers.add(link.source);
-    });
-    return performers;
-  }, [links, influenceTargets, nodeById]);
+    const notableCount = performerNotableCounts.get(link.source) || 0;
+    if (genre !== "Oceanus Folk" && notableCount < minNotables) return;
+
+    performers.add(link.source);
+  });
+  return performers;
+  }, [links, influenceTargets, nodeById, performerNotableCounts, minNotables]);
+  
+
 
   const performedOceanusSongs = useMemo(() => {
     const songIds = new Set();
@@ -208,6 +234,25 @@ function NotableArtistNetworkGraph({ nodes, links, yearRange, selectedInfluenceT
     verticalAlign: 'middle',
   };
 
+  // Less aggressive clustering
+  const fgRef = useRef();
+
+
+  useEffect(() => {
+  if (!fgRef.current) return;
+
+  fgRef.current.d3Force('charge').strength(-10);
+  fgRef.current.d3Force('link').distance(100);
+  fgRef.current.d3Force('collision', forceCollide(15));
+
+  // Restart the simulation
+  if (fgRef.current.d3Force('charge').simulation) {
+    fgRef.current.d3Force('charge').simulation.alpha(1).restart();
+  } else if (typeof fgRef.current.refresh === 'function') {
+    fgRef.current.refresh();
+  }
+}, [graphNodes, graphLinks]);
+
   return (
     <div>
       <div style={legendStyle}>
@@ -233,7 +278,7 @@ function NotableArtistNetworkGraph({ nodes, links, yearRange, selectedInfluenceT
         linkLabel={link => `Influence Type: ${link.edgeType || 'Unknown'}`}
         nodeCanvasObject={(node, ctx, globalScale) => {
           const label = node.name;
-          const fontSize = 12 / globalScale;
+          const fontSize = 9 / globalScale;
           ctx.font = `${fontSize}px Sans-Serif`;
 
           const color = genreColor(node.genre);
@@ -241,11 +286,11 @@ function NotableArtistNetworkGraph({ nodes, links, yearRange, selectedInfluenceT
 
           const squareGroups = new Set(["song"]);
           if (squareGroups.has(node.group)) {
-            const size = 10;
+            const size = 18;
             ctx.fillRect(node.x - size / 2, node.y - size / 2, size, size);
           } else {
             ctx.beginPath();
-            ctx.arc(node.x, node.y, 5, 0, 2 * Math.PI, false);
+            ctx.arc(node.x, node.y, 10, 0, 5 * Math.PI, false);
             ctx.fill();
           }
 

@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import * as d3 from 'd3';
 
 function genreColor(genre) {
@@ -10,9 +10,28 @@ function genreColor(genre) {
   return "#000000";
 }
 
-export default function StackedHistogram({ data, width = 800, height = 100, highlightedGenre }) {
+function getGenreGroup(genre) {
+  if (genre === "Oceanus Folk") return "Oceanus Folk";
+  if (genre.toLowerCase().endsWith("rock")) return "Rock";
+  if (genre.toLowerCase().endsWith("folk")) return "Folk";
+  if (genre.toLowerCase().endsWith("metal")) return "Metal";
+  if (genre.toLowerCase().endsWith("pop")) return "Pop";
+  return "Other genres";
+}
+
+export default function StackedHistogram({ data, width = 800, height = 120, highlightedGenre }) {
   const ref = useRef();
   const tooltipRef = useRef();
+  const legendRef = useRef();
+
+  const [selectedGroups, setSelectedGroups] = useState({
+    Rock: true,
+    Folk: true,
+    Metal: true,
+    Pop: true,
+    "Other genres": true,
+    "Oceanus Folk": true,
+  });
 
   useEffect(() => {
     if (!data) return;
@@ -21,7 +40,8 @@ export default function StackedHistogram({ data, width = 800, height = 100, high
     svg.selectAll("*").remove();
 
     const tooltip = d3.select(tooltipRef.current);
-    tooltip.style("position", "absolute")
+    tooltip
+      .style("position", "absolute")
       .style("visibility", "hidden")
       .style("background", "white")
       .style("border", "1px solid #ccc")
@@ -35,7 +55,9 @@ export default function StackedHistogram({ data, width = 800, height = 100, high
     const innerHeight = height - margin.top - margin.bottom;
 
     const years = Object.keys(data).map(d => +d).sort((a, b) => a - b);
-    const genres = Array.from(new Set(Object.values(data).flatMap(yearData => Object.keys(yearData))));
+    const genres = Array.from(
+      new Set(Object.values(data).flatMap(yearData => Object.keys(yearData)))
+    );
 
     const stackData = years.map(year => {
       const yearData = data[year];
@@ -52,11 +74,19 @@ export default function StackedHistogram({ data, width = 800, height = 100, high
 
     const x = d3.scaleBand().domain(years).range([0, innerWidth]).padding(0.2);
     const y = d3.scaleLinear()
-      .domain([0, d3.max(stackData, d => d3.sum(genres.map(g => d[g] || 0)))])
+      .domain([
+        0,
+        d3.max(stackData, d =>
+          d3.sum(genres, g =>
+            selectedGroups[getGenreGroup(g)] ? (d[g] || 0) : 0
+          )
+        )
+      ])
       .nice()
-      .range([innerHeight - 18, 0]);
+      .range([innerHeight - 2, 0]);
 
-    const g = svg.append("g")
+    const g = svg
+      .append("g")
       .attr("transform", `translate(${margin.left},${margin.top})`);
 
     g.selectAll("g.layer")
@@ -64,9 +94,17 @@ export default function StackedHistogram({ data, width = 800, height = 100, high
       .enter()
       .append("g")
       .attr("fill", d => {
-        if (highlightedGenre && d.key === highlightedGenre) return "white";
+        const group = getGenreGroup(d.key);
+        const isSelected = selectedGroups[group];
+        const isHighlighted = highlightedGenre && d.key === highlightedGenre;
+
+        if (!isSelected) return "white"; // deselected genres turn white
+        if (isHighlighted) return "white"; // highlighted genre also white
         return genreColor(d.key);
       })
+      .style("opacity", d =>
+        selectedGroups[getGenreGroup(d.key)] ? 0.9 : 0
+      )
       .selectAll("rect")
       .data(d => d.map(v => ({ ...v, key: d.key })))
       .enter()
@@ -75,17 +113,18 @@ export default function StackedHistogram({ data, width = 800, height = 100, high
       .attr("y", d => y(d[1]))
       .attr("height", d => y(d[0]) - y(d[1]))
       .attr("width", x.bandwidth())
-      .attr("opacity", 0.9)
       .on("mouseover", (event, d) => {
-        const color = genreColor(d.key); 
-        tooltip.style("visibility", "visible")
+        const color = genreColor(d.key);
+        const count = d.data[d.key] || 0;
+        tooltip
+          .style("visibility", "visible")
           .style("color", color)
-          .text(d.key);
+          .html(`<strong>${d.key}</strong><br/># of activities: ${count}`);
       })
       .on("mousemove", event => {
         tooltip
-          .style("top", `${event.pageY - 28}px`)
-          .style("left", `${event.pageX + 8}px`);
+          .style("top", `${event.pageY}px`)
+          .style("left", `${event.pageX}px`);
       })
       .on("mouseout", () => {
         tooltip.style("visibility", "hidden");
@@ -100,11 +139,63 @@ export default function StackedHistogram({ data, width = 800, height = 100, high
       .call(d3.axisBottom(x).tickValues(years.filter((_, i) => i % 5 === 0)))
       .attr("font-size", "10px");
 
-  }, [data, highlightedGenre]);
+    // LEGEND
+    const legendSvg = d3.select(legendRef.current);
+    const legendWidth = 1000;
+    const legendHeight = 60;
+
+    legendSvg
+      .attr("width", legendWidth)
+      .attr("height", legendHeight)
+      .selectAll("*")
+      .remove();
+
+    const legendData = [
+      { label: "Rock", color: "#1f77b4" },
+      { label: "Folk", color: "#2ca02c" },
+      { label: "Metal", color: "#9467bd" },
+      { label: "Pop", color: "#ff7f0e" },
+      { label: "Other genres", color: "#000000" },
+      { label: "Oceanus Folk", color: "red" },
+    ];
+
+    const legend = legendSvg.append("g").attr("transform", "translate(20, 20)");
+
+    const items = legend
+      .selectAll("g.legend-item")
+      .data(legendData)
+      .enter()
+      .append("g")
+      .attr("class", "legend-item")
+      .attr("transform", (d, i) => `translate(${i * 160}, 0)`)
+      .style("cursor", "pointer")
+      .on("click", (event, d) => {
+        setSelectedGroups(prev => ({
+          ...prev,
+          [d.label]: !prev[d.label],
+        }));
+      });
+
+    items
+      .append("rect")
+      .attr("width", 14)
+      .attr("height", 14)
+      .attr("fill", d => d.color)
+      .attr("stroke", d => (selectedGroups[d.label] ? "#fff" : "none"))
+      .attr("stroke-width", 2);
+
+    items
+      .append("text")
+      .attr("x", 20)
+      .attr("y", 12)
+      .text(d => d.label)
+      .style("font-size", "12px");
+  }, [data, highlightedGenre, selectedGroups]);
 
   return (
     <>
       <svg ref={ref} width={width} height={height}></svg>
+      <svg ref={legendRef}></svg>
       <div ref={tooltipRef}></div>
     </>
   );

@@ -46,7 +46,7 @@ export default function Task2Main() {
   const [yearlyGenreTotals, setYearlyGenreTotals] = useState(null);
   
   const [influenceTypeData, setInfluenceTypeData] = useState(null);
-
+  const [minNotables, setMinNotables] = useState(0);
 
   const [selectedInfluenceTypes, setSelectedInfluenceTypes] = useState(new Set([
     "InStyleOf",
@@ -112,7 +112,7 @@ export default function Task2Main() {
     data.nodes,
     data.links,
     selectedInfluenceTypes,
-    minMaxYear // or yearRange
+    minMaxYear 
   );
   setInfluenceTypeData(counts);
 }, [data, selectedInfluenceTypes, minMaxYear]);
@@ -143,6 +143,7 @@ export default function Task2Main() {
         position: 'relative',
       }}
     >
+
       {/* Top Left: Network */}
       <div style={{ gridColumn: '1 / 3', gridRow: '1', padding: '5px', borderRadius: '1px', overflow: 'auto' }}>
         <h4>Network</h4>
@@ -168,12 +169,38 @@ export default function Task2Main() {
             </label>
           ))}
         </div>
+        {/* Vertical Slider next to Network */}
+<div style={{
+  position: 'absolute',
+  top: '80px',
+  left: 'calc(66.5% - 30px)', // adjust this to fine-tune placement
+  height: '300px',
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+}}>
+  <label style={{ fontSize: '10px', writingMode: 'vertical-rl', marginBottom: '8px' }}>
+    Min Notables: {minNotables}
+  </label>
+  <ReactSlider
+    className="custom-slider-vertical"
+    thumbClassName="custom-thumb"
+    trackClassName="custom-track"
+    orientation="vertical"
+    min={0}
+    max={50}
+    value={minNotables}
+    onChange={setMinNotables}
+    style={{ height: '100%', width: '60px' }}
+  />
+</div>
         {data && (
           <NotableArtistNetworkGraph
             nodes={data.nodes}
             links={data.links}
             yearRange={yearRange}
             selectedInfluenceTypes={selectedInfluenceTypes}
+            minNotables={minNotables}
           />
         )}
       </div>
@@ -236,11 +263,20 @@ export default function Task2Main() {
         flexDirection: 'column',
         gap: '10px'
       }}>
-        {/* <div style={{ flex: 1, padding: '10px', borderRadius: '8px' }}> */}
-          {/* <h4>Oceanus Folk Outgoing Influences</h4> */}
+        <div style={{ flex: 1, padding: '10px', borderRadius: '8px' }}> 
+          <h4>Top influenced Artists of all time</h4>
           {/* <OceanusFolkInfluenceBarChart data={influenceData} /> */}
-          {/* <h4> Placeholder </h4>
-        </div> */}
+          <h4> # of activites in the genre historgram are aggregated values of:  </h4>
+          {/* <p></p> */}
+          <ul style={{ listStyleType: 'none', paddingLeft: 0, fontSize: '11px' }}>
+            <li># of songs</li>
+            <li># of albums</li>
+            <li># of record labels</li>
+            <li># of artists + groups</li>
+            <li># of notables</li>
+            <li># of lyricists + composers</li>
+          </ul>
+        </div> 
 
         
         {/* <div style={{ flex: 1, padding: '10px', borderRadius: '8px' }}>
@@ -254,8 +290,8 @@ export default function Task2Main() {
         position: 'absolute',
         bottom: '10px',
         left: '33.5%',
-        transform: 'translateX(-50%)',
-        width: '60%',
+        transform: 'translateX(-47%)',
+        width: '65%',
         padding: '10px',
       }}>
         {/* Scented widget for time slider*/}

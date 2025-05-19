@@ -30,3 +30,36 @@
   font-size: 16px;
   color: #555;
 }
+
+
+/*vertical slider*/
+.custom-slider-vertical {
+  /* height: 50%;*/
+  margin-left: 5px; 
+  width: 20px;
+  height: 50%;
+  background: #111;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+}
+
+.custom-slider-vertical .custom-track {
+  background: #333;
+  /* width: 20px; */
+  /* height: 100px; */
+  border-radius: 4px;
+}
+
+.custom-slider-vertical .custom-thumb {
+  height: 20px;
+  width: 30px;
+  background-color: #eee;
+  border: 2px solid white;
+  border-radius: 6px;
+  cursor: grab;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 4px rgba(255, 255, 255, 0.6);
+}
