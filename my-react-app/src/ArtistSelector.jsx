@@ -7,8 +7,8 @@ export default function ArtistSelector({
 }) {
   return (
     <div>
-      <h2>Multi-Artist Network</h2>
-      <label>Select Artists:</label><br/>
+      {/* <h2>Multi-Artist Network</h2> */}
+      <label style={{ fontSize: 10 }}>Select Artists:</label><br/>
       <select
         multiple
         value={selectedIds}

@@ -278,7 +278,10 @@ export default function Task2Main() {
         gap: '10px'
       }}>
         <div style={{ flex: 1, padding: '10px', borderRadius: '8px' }}> 
-          <h4>Top influenced Artists of all time</h4>
+          {/* <h4></h4> */}
+          {/* <p style={{ fontSize: 10 }}>The influence histogram does not consider internal Oceanus Folk influences,
+            only influences spread to
+          </p> */}
           {/* <OceanusFolkInfluenceBarChart data={influenceData} /> */}
 
           <h4> # of activites in the genre historgram are aggregated values of:  </h4>
