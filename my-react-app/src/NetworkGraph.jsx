@@ -5,6 +5,7 @@ import CombinedInfo from "./CombinedInfo";
 //import TimeSeriesChart from "./TimeSeriesChart";
 import EdgeFilter from "./EdgeFilter";
 import TemporalInfluenceChart from "./TemporalInfluencerChart";
+import InfluenceGraph from "./InfluenceGraph";
 
 const allEdgeTypes = [
   "PerformerOf",
@@ -169,7 +170,6 @@ export default function NetworkGraph() {
     }
   };
 
-
   return (
     <div
       style={{
@@ -242,7 +242,7 @@ export default function NetworkGraph() {
       </div>
 
       {/* ─── BOTTOM ROW: detail view 1 & 2 ─── */}
-      <div style={{ display: "flex", height: 250 }}>
+      <div style={{ display: "flex", height: 150 }}>
         <div
           style={{
             flex: 1,
@@ -251,11 +251,11 @@ export default function NetworkGraph() {
             padding: "0.5rem",
           }}
         >
-<TemporalInfluenceChart
-  graph={graph}
-  selectedNodeId={debouncedArtist}
-/>
-
+          <InfluenceGraph
+            fullGraph={graph}
+            selectedId={debouncedArtist}
+            onNodeClick={handleNodeClick}
+          />
         </div>
 
         <div style={{ flex: 1, overflow: "auto", padding: "0.5rem" }}>
