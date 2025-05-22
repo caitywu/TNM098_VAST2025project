@@ -1,7 +1,12 @@
 import { Link, Outlet } from 'react-router-dom';
 
+/**
+ * A layout that renders a header with links to the pages.
+ * 
+ * @returns {JSX.Element} The rendered header.
+ */
 export default function Layout() {
-  const headerHeight = 80; // adjust based on header size
+  const headerHeight = 80; 
 
   return (
     <div>
@@ -18,6 +23,7 @@ export default function Layout() {
           boxShadow: '0 2px 5px rgba(0,0,0,0.1)',
         }}
       >
+        {/* Header content --> Links to the pages */}
         <h1 style={{ margin: 0 }}>Musical Network</h1>
         <nav style={{ marginTop: '0.5rem' }}>
           <Link to="/" style={{ marginRight: '2rem' }}>Network Graph</Link>

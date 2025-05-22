@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import * as d3 from 'd3';
 
-// Functions to get genre colors and families
+// Functions to get genre colors for genre families
 function genreColor(genre) {
   if (genre === "Oceanus Folk") return "red";
   if (genre.toLowerCase().endsWith("rock")) return "#1f77b4";
@@ -20,7 +20,31 @@ function getGenreGroup(genre) {
   return "Other genres";
 }
 
+
+/**
+ * A stacked histogram counting # of activities per genre per year. <br>
+ * Counts include: <ul>
+ * <li>Songs</li>
+ * <li>Albums</li>
+ * <li>Record labels</li>
+ * <li>Artists + Music Groups</li>
+ * <li>Notables</li>
+ * <li>Lyricists + Composers</li>
+ * </ul> <br>
+ * The histogram has an interactive legend to show/hide genre families.
+ *
+ * @param {Object} Component properties
+ * @param {Object} props.data - Dataset containing yearly genre activity counts from dataset
+ * @param {number} [props.width=800] - Width of histogram
+ * @param {number} [props.height=120] - Height of histogram
+ * @param {string} [props.highlightedGenre] - Highlight selected genre
+ * 
+ * @returns {JSX.Element} JSX element rendering the stacked histogram with an interactive legend
+ */
+
 export default function StackedHistogram({ data, width = 800, height = 120, highlightedGenre }) {
+  
+  // Refs for SVG elements for histogram, tooltip and legend
   const ref = useRef();
   const tooltipRef = useRef();
   const legendRef = useRef();
@@ -35,6 +59,7 @@ export default function StackedHistogram({ data, width = 800, height = 120, high
     "Oceanus Folk": true,
   });
 
+  // Effect to update the histogram and legend when data or selected groups change
   useEffect(() => {
     if (!data) return;
 
@@ -49,13 +74,15 @@ export default function StackedHistogram({ data, width = 800, height = 120, high
       .style("border", "1px solid #ccc")
       .style("padding", "4px 8px")
       .style("border-radius", "4px")
-      .style("font-size", "12px")
+      .style("font-size", "10px")
       .style("pointer-events", "none");
 
+    // Histogram svg dimensions
     const margin = { top: 10, right: 20, bottom: 20, left: 40 };
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
     
+    // Get the years and genres from the data and sort them
     const years = Object.keys(data).map(d => +d).sort((a, b) => a - b);
     const genres = Array.from(
       new Set(Object.values(data).flatMap(yearData => Object.keys(yearData)))
@@ -76,6 +103,7 @@ export default function StackedHistogram({ data, width = 800, height = 120, high
     const stack = d3.stack().keys(genres);
     const series = stack(stackData);
 
+    // Create scales for x and y axes and bar sizes
     const x = d3.scaleBand().domain(years).range([0, innerWidth]).padding(0.2);
     const y = d3.scaleLinear()
       .domain([
@@ -92,7 +120,8 @@ export default function StackedHistogram({ data, width = 800, height = 120, high
     const g = svg
       .append("g")
       .attr("transform", `translate(${margin.left},${margin.top})`);
-
+    
+    // Draw bars for each genre
     g.selectAll("g.layer")
       .data(series)
       .enter()
@@ -121,6 +150,8 @@ export default function StackedHistogram({ data, width = 800, height = 120, high
       .on("mouseover", (event, d) => {
       const color = genreColor(d.key);
       const count = d.data[d.key] || 0;
+        
+      // Tooltip  
       tooltip
           .style("visibility", "visible")
           .style("color", color)
@@ -144,7 +175,7 @@ export default function StackedHistogram({ data, width = 800, height = 120, high
       .call(d3.axisBottom(x).tickValues(years.filter((_, i) => i % 5 === 0)))
       .attr("font-size", "10px");
 
-    // Legend at the bottom
+    // Interactive legend at the bottom
     const legendSvg = d3.select(legendRef.current);
     const legendWidth = 1000;
     const legendHeight = 60;
@@ -166,6 +197,7 @@ export default function StackedHistogram({ data, width = 800, height = 120, high
 
     const legend = legendSvg.append("g").attr("transform", "translate(20, 20)");
 
+    // Handle legend item clicks
     const items = legend
       .selectAll("g.legend-item")
       .data(legendData)
@@ -197,6 +229,7 @@ export default function StackedHistogram({ data, width = 800, height = 120, high
       .style("font-size", "12px");
   }, [data, highlightedGenre, selectedGroups]);
 
+  // retirn histogram, legend and tooltip
   return (
     <>
       <svg ref={ref} width={width} height={height}></svg>

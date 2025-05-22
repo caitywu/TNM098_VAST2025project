@@ -1,16 +1,17 @@
 import React, { useEffect, useState, useMemo } from 'react';
+
 import { loadGraphData } from './dataLoader';
 import {
   computeGenreMetrics,
   computeOceanusFolkInfluences,
-  getSailorShiftGenres,
   computeGenreYearlyTotals
 } from './GenreMetrics';
-import ReactSlider from 'react-slider';
 import NotableArtistNetworkGraph from './NotableArtistNetwork';
 import StackedHistogram from './Historgram';
 import InfluenceTypeStackedHistogram from './InfluenceTypeHistogram';
 import { computeOceanusFolkInfluenceTypeCounts } from './InfluenceTypeHistogram';
+
+import ReactSlider from 'react-slider';
 import './CustomSlider.css';
 
 // Dimensions for genre histogram 
@@ -43,7 +44,6 @@ export default function Task2Main() {
   const [minMaxYear, setMinMaxYear] = useState([2000, 2030]);
 
   const [influenceData, setInfluenceData] = useState(null);
-  const [showSailorShiftGenres, setShowSailorShiftGenres] = useState(false);
   const [globalDomain, setGlobalDomain] = useState(null);
 
   const [yearlyGenreTotals, setYearlyGenreTotals] = useState(null); // state to count stacked histogram genres 
@@ -105,17 +105,13 @@ export default function Task2Main() {
     // Compute genre metrics for the selected year range
     const allStats = computeGenreMetrics(data.nodes, data.links, yearRange);
 
-    if (showSailorShiftGenres) {
-      const sailorGenres = getSailorShiftGenres(data.nodes, data.links, yearRange);
-      setGenreStats(allStats.filter(stat => sailorGenres.includes(stat.genre)));
-    } else {
-      setGenreStats(allStats);
-    }
+    setGenreStats(allStats);
     
     // Compute the influence type histogram
     setInfluenceData(computeOceanusFolkInfluences(data.nodes, data.links, yearRange));
-  }, [selectedYearRange, data, showSailorShiftGenres]);
+  }, [selectedYearRange, data]);
 
+  // Compute yearly influnence type counts
   useEffect(() => {
     if (!data) return;
 
@@ -275,8 +271,6 @@ export default function Task2Main() {
         </ul>
       </div>
 
-      
-
       {/* Bottom right: Genre Info */}
       <div style={{ gridColumn: '3', gridRow: '2', padding: '1px' }}>
            <h4 style={{fontSize: '11px', fontWeight: 'bold'}}>Network & Influence Histogram Info: </h4>
@@ -309,25 +303,25 @@ export default function Task2Main() {
         padding: '10px',
       }}>
         <ReactSlider
-  className="custom-slider"
-  thumbClassName="custom-thumb"
-  trackClassName="custom-track"
-  min={minMaxYear[0]}
-  max={minMaxYear[1]}
-  value={selectedYearRange}
-  onChange={setSelectedYearRange}
-  pearling
-  minDistance={0}
-/>
-<div style={{
-  color: '#000',
-  fontWeight: 'bold',
-  textAlign: 'center',
+          className="custom-slider"
+          thumbClassName="custom-thumb"
+          trackClassName="custom-track"
+          min={minMaxYear[0]}
+          max={minMaxYear[1]}
+          value={selectedYearRange}
+          onChange={setSelectedYearRange}
+          pearling
+          minDistance={0}
+        />
+        <div style={{
+          color: '#000',
+          fontWeight: 'bold',
+          textAlign: 'center',
           transform: 'translateY(20px)',
           fontSize: '11px',
-}}>
-  Range: {selectedYearRange[0]} – {selectedYearRange[1]}
-</div>
+        }}>
+        Range: {selectedYearRange[0]} – {selectedYearRange[1]}
+        </div>
       </div>
     </div>
   );

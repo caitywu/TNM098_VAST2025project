@@ -3,6 +3,7 @@ import * as d3 from 'd3';
 
 // Function to compute the influence type counts 
 export function computeOceanusFolkInfluenceTypeCounts(nodes, links, selectedInfluenceTypes, yearRange) {
+  // Set year range from data, get nodes from ids and initialize result counts
   const [minYear, maxYear] = yearRange;
   const nodeById = new Map(nodes.map(n => [n.id, n]));
   const result = {};
@@ -12,9 +13,11 @@ export function computeOceanusFolkInfluenceTypeCounts(nodes, links, selectedInfl
     const edgeType = link.edgeType || link["Edge Type"];
     if (!selectedInfluenceTypes.has(edgeType)) return;
 
+    // Only count influence from Oceanus Folk songs/albums
     const source = nodeById.get(link.source);
     if (!source || source.genre !== "Oceanus Folk") return;
 
+    // Get the year of the source node
     const year = parseInt(source.release_date);
     if (isNaN(year) || year < minYear || year > maxYear) return;
 
@@ -54,6 +57,15 @@ const influenceTypeColors = {
   "InterpolatesFrom": "#e78ac3"  
 };
 
+/**
+ *A stacked histogram that visualizes the counts of outgoing fluences from Oceanus Folk each year.
+ *
+ * @param {Object} data Nodes and links from dataset.
+ * @param {number} width Histogram width of the SVG (default: 800)
+ * @param {number} height Histogram height of the SVG (default: 100)
+ * 
+ * @returns {JSX.Element} JSX element that renders the stacked histogram
+ */
 export default function InfluenceTypeStackedHistogram({
   data,
   width = 800,
@@ -99,59 +111,7 @@ export default function InfluenceTypeStackedHistogram({
       .domain(allInfluenceTypes)
       .range(allInfluenceTypes.map(type => influenceTypeColors[type]));
 
-    // Labels for the legend
-    const shortLabels = {
-      "InStyleOf": "StyleOf",
-      "CoverOf": "CoverOf",
-      "DirectlySamples": "Samples",
-      "LyricalReferenceTo": "LyricalRef",
-      "InterpolatesFrom": "Interpolates"
-    };
-
-    // Legend layout
-    const cols = 3  ;
-    const legendItemSize = 8;
-    const legendSpacingX = 50;
-    const legendSpacingY = 10;
-    const legendPadding = 5;
-
-    const legend = svg.append("g")
-      .attr("transform", `translate(${margin.left}, 10)`);
-
-    const legendWidth = cols * legendSpacingX - (legendSpacingX - legendItemSize);
-    const legendRows = Math.ceil(types.length / cols);
-    const legendHeight = legendRows * legendSpacingY - (legendSpacingY - legendItemSize);
-
-    legend.append("rect")
-      .attr("width", legendWidth + legendPadding * 9)
-      .attr("height", legendHeight + legendPadding * 2)
-      .attr("x", -legendPadding)
-      .attr("y", -legendPadding)
-      .attr("fill", "white")
-      .attr("stroke", "none")
-      .attr("rx", 4)
-      .attr("ry", 4);
-
-    types.forEach((type, i) => {
-      const col = i % cols;
-      const row = Math.floor(i / cols);
-
-      const legendGroup = legend.append("g")
-        .attr("transform", `translate(${col * legendSpacingX}, ${row * legendSpacingY})`);
-
-      legendGroup.append("rect")
-        .attr("width", legendItemSize)
-        .attr("height", legendItemSize)
-        .attr("fill", color(type));
-
-      legendGroup.append("text")
-        .attr("x", legendItemSize + 4)
-        .attr("y", legendItemSize / 2)
-        .attr("dy", "0.35em")
-        .attr("font-size", 7)
-        .text(shortLabels[type] || type);
-    });
-
+    
     // Tooltip
     const tooltip = d3.select("body")
       .append("div")

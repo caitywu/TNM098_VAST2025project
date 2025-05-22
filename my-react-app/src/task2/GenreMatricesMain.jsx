@@ -5,6 +5,8 @@ import './CustomSlider.css';
 import GenreInfluenceMatrix from './GenreInfluenceMatrix';
 
 export default function GenreMatrixMain() {
+
+  // States for dataset, year selection and mode
   const [data, setData] = useState(null);
   const [minMaxYear, setMinMaxYear] = useState([2000, 2030]);
 
@@ -14,6 +16,7 @@ export default function GenreMatrixMain() {
   const [rightYearRange, setRightYearRange] = useState([1975, 2040]);
   const [rightMode, setRightMode] = useState('outgoing');
 
+  // Read dataset and get min/max years 
   useEffect(() => {
   loadGraphData('/MC1_graph.json').then(graph => {
     setData(graph);
@@ -28,10 +31,10 @@ export default function GenreMatrixMain() {
 
     setMinMaxYear([minYear, maxYear]);
 
-    // Left slider: full range
+    // Left slider starts at full range
     setLeftYearRange([minYear, maxYear]);
 
-    // Right slider: clamp to [2023, 2040]
+    // Right slider starts at [2023, 2040]
     const desiredRightStart = 2023;
     const desiredRightEnd = 2040;
     const rightStart = Math.max(minYear, desiredRightStart);
@@ -52,10 +55,11 @@ export default function GenreMatrixMain() {
         overflow: 'hidden',
       }}
     >
-      {/* LEFT Matrix */}
+      {/* Left Matrix */}
       <div style={{ overflow: 'auto', maxHeight: '100%', display: 'flex', flexDirection: 'column' }}>
         <h4>Genre Influence Matrix (Left)</h4>
 
+        {/* Checkbox for incoming/outgoing mode */}
         <label style={{ fontSize: '10px' }}>
           <input
             type="checkbox"
@@ -65,7 +69,8 @@ export default function GenreMatrixMain() {
             }
           /> Show Incoming
         </label>
-
+        
+        {/* Year slider*/}
         <div style={{ marginTop: '8px', width: '80%' }}>
           <label style={{ color: '#000', fontWeight: 'bold' }}>
             Years: {leftYearRange[0]} – {leftYearRange[1]}
@@ -83,6 +88,7 @@ export default function GenreMatrixMain() {
           />
         </div>
 
+        {/* Genre Influence Matrix */}
         {data && (
           <GenreInfluenceMatrix
             nodes={data.nodes}
@@ -93,7 +99,7 @@ export default function GenreMatrixMain() {
         )}
       </div>
 
-      {/* Vertical Divider */}
+      {/* Divider */}
       <div
         style={{
           width: '2px',
@@ -102,10 +108,11 @@ export default function GenreMatrixMain() {
         }}
       />
 
-      {/* RIGHT Matrix */}
+      {/* Right Matrix */}
       <div style={{ overflow: 'auto', maxHeight: '100%', display: 'flex', flexDirection: 'column' }}>
         <h4>Genre Influence Matrix (Right)</h4>
 
+        {/* Checkbox for incoming/outgoing mode */}
         <label style={{ fontSize: '10px' }}>
           <input
             type="checkbox"
@@ -115,7 +122,8 @@ export default function GenreMatrixMain() {
             }
           /> Show Incoming
         </label>
-
+        
+        {/* Year slider*/}
         <div style={{ marginTop: '8px', width: '80%' }}>
           <label style={{ color: '#000', fontWeight: 'bold' }}>
             Years: {rightYearRange[0]} – {rightYearRange[1]}
@@ -132,7 +140,8 @@ export default function GenreMatrixMain() {
             minDistance={0}
           />
         </div>
-
+        
+        {/* Genre Influence Matrix */}
         {data && (
           <GenreInfluenceMatrix
             nodes={data.nodes}

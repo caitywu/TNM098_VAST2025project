@@ -1,4 +1,11 @@
-// Function to compute genre counts 
+/**
+ * Computes the counts of activities per genre in the dataset --> used by the stacked stats histogram.
+ * 
+ * @param {array} nodes - Nodes from the dataset.
+ * @param {array} links - Edges from the dataset.
+ * @param {array} yearRange - Array containing  minimum and maximum year for filtering nodes.
+ * @returns {array} An array of objects containing the respective genre counts.
+ */
 export function computeGenreMetrics(nodes, links, yearRange = [0, Infinity]) {
   const genreStats = {};
   const [minYear, maxYear] = yearRange;
@@ -21,6 +28,7 @@ export function computeGenreMetrics(nodes, links, yearRange = [0, Infinity]) {
     const { genre, nodeType, release_date, notable } = node;
     if (!genre || isNaN(release_date) || release_date < minYear || release_date > maxYear) return;
 
+    // Activities 
     if (!genreStats[genre]) {
       genreStats[genre] = {
         genre,
@@ -34,6 +42,7 @@ export function computeGenreMetrics(nodes, links, yearRange = [0, Infinity]) {
       };
     }
 
+    // Increment the respective counts on current node's genre
     const g = genreStats[genre];
 
     if (nodeType === "Song") {
@@ -55,6 +64,7 @@ export function computeGenreMetrics(nodes, links, yearRange = [0, Infinity]) {
     const g = genreStats[genre];
     if (!g) return;
 
+    // Add the source node to the respective sets based on edge type
     if (["RecordedBy", "DistributedBy"].includes(link.edgeType)) {
       g.recordLabels.add(link.source);
     }
@@ -72,7 +82,7 @@ export function computeGenreMetrics(nodes, links, yearRange = [0, Infinity]) {
     }
   });
 
-  // Return the respective genre counts 
+  // Return the respective counts 
   return Object.values(genreStats).map(g => ({
     genre: g.genre,
     songs: g.songs,
@@ -85,7 +95,15 @@ export function computeGenreMetrics(nodes, links, yearRange = [0, Infinity]) {
 }
 
 
-// Function to compute yearly genre totals
+
+
+/**
+ * Computes the yearly totals of genre metrics by release year --> used by the stacked stats histogram.
+ *
+ * @param {array} nodes - Nodes from the dataset.
+ * @param {array} yearRange - Array of thee minimum and maximum year for filtering nodes.
+ * @returns {object} An object with keys=release years and values=respective genre metrics.
+ */
 export function computeGenreYearlyTotals(nodes, yearRange = [0, Infinity]) {
   const [minYear, maxYear] = yearRange;
   const yearlyGenreData = {};
@@ -97,6 +115,7 @@ export function computeGenreYearlyTotals(nodes, yearRange = [0, Infinity]) {
     genre: n.genre || null,
   }));
 
+  // Iterate through each node and count the dimensions per genre
   for (const node of normalizedNodes) {
     const { release_date, genre, nodeType } = node;
     if (!genre || isNaN(release_date) || release_date < minYear || release_date > maxYear) continue;
@@ -104,6 +123,7 @@ export function computeGenreYearlyTotals(nodes, yearRange = [0, Infinity]) {
     if (!yearlyGenreData[release_date]) yearlyGenreData[release_date] = {};
     if (!yearlyGenreData[release_date][genre]) {
       yearlyGenreData[release_date][genre] = {
+        // Initialize dimension counts for each genre
         songs: 0,
         albums: 0,
         notables: 0,
@@ -113,6 +133,7 @@ export function computeGenreYearlyTotals(nodes, yearRange = [0, Infinity]) {
       };
     }
 
+    // Increment the respective dimension counts
     const genreData = yearlyGenreData[release_date][genre];
     if (nodeType === "Song") genreData.songs++;
     else if (nodeType === "Album") genreData.albums++;
@@ -123,7 +144,17 @@ export function computeGenreYearlyTotals(nodes, yearRange = [0, Infinity]) {
 
 
 
-// Function to compute Oceanus Folk influences
+
+/**
+ * Computes the influence counts of different types originating from Oceanus Folk songs/albums.
+ *
+ * @param {Array} nodes - Nodes from the dataset.
+ * @param {Array} links - Edges from the dataset.
+ * @param {Array} yearRange - Array containing  minimum and maximum year for filtering nodes.
+ * 
+ * @returns {Object} An object containing the counts of each influence type where the source node 
+ *                   is an Oceanus Folk song/album within the specified year range.
+ */
 export function computeOceanusFolkInfluences(nodes, links, yearRange) {
   const [minYear, maxYear] = yearRange;
 
@@ -140,6 +171,7 @@ export function computeOceanusFolkInfluences(nodes, links, yearRange) {
     edgeType: link.edgeType || link["Edge Type"] || null,
   }));
 
+  // Define relevant edge types for Oceanus Folk influences
   const relevantEdgeTypes = ["DirectlySamples", "CoverOf", "StyleOf", "LyricalReferenceTo", "InterpolatesFrom"];
 
   // Identify Oceanus Folk sources in the year range
@@ -183,7 +215,15 @@ export function computeOceanusFolkInfluences(nodes, links, yearRange) {
 
 
 
+/**
+ * Finds all unique genres Sailor Shift has performed, produced, lyriced, or composed.
+ *
+ * @param {Array} nodes - Nodes from dataset.
+ * @param {Array} links - Edges from dataset.
+ * @returns {Array} - An array of unique genres linked to "Sailor Shift"
+ */
 export function getSailorShiftGenres(nodes, links) {
+  // Normalize nodes and links
   const normalizedNodes = nodes.map(n => ({
     ...n,
     name: n.name || "",
@@ -192,13 +232,14 @@ export function getSailorShiftGenres(nodes, links) {
     release_date: parseInt(n.release_date),
   }));
 
+  // Create a map of nodes by id
   const nodeById = new Map(normalizedNodes.map(n => [n.id, n]));
 
   const normalizedLinks = links.map(link => ({
     ...link,
     edgeType: link.edgeType || link["Edge Type"],
   }));
-
+  // Find all links where the source is "Sailor Shift"
   const targetGenres = new Set();
   const relevantTypes = new Set(["PerformerOf", "ProducerOf", "LyricistOf", "ComposerOf"]);
 
@@ -211,6 +252,7 @@ export function getSailorShiftGenres(nodes, links) {
     // Normalize source name (handle both ID or full object)
     let sourceName = "";
 
+    // Iterate over the source nodes to find if they are tied to Sailor Shift
     if (typeof link.source === "string") {
       const sourceNode = nodeById.get(link.source);
       if (sourceNode) sourceName = sourceNode.name || "";

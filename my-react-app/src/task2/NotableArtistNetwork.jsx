@@ -4,283 +4,258 @@ import { forceCollide } from 'd3-force';
 import ForceGraph2D from 'react-force-graph-2d';
 import ArtistSelector from '../ArtistSelector';
 
-// Function to get genre colors
+// Function to color encode based on genre
 function genreColor(genre) {
   if (!genre) return "#999";
+  const g = genre.toLowerCase();
   if (genre === "Oceanus Folk") return "red";
-  if (genre.toLowerCase().endsWith("rock")) return "#1f77b4";
-  if (genre.toLowerCase().endsWith("folk")) return "#2ca02c";
-  if (genre.toLowerCase().endsWith("metal")) return "#9467bd";
-  if (genre.toLowerCase().endsWith("pop")) return "#ff7f0e";
-  return "#000000";
+  if (g.includes("rock")) return "#1f77b4";
+  if (g.includes("folk")) return "#2ca02c";
+  if (g.includes("metal")) return "#9467bd";
+  if (g.includes("pop")) return "#ff7f0e";
+  return "#000";
 }
 
-// List of all influence types and their colors
+// Colors ofr influence types
 const influenceTypeColors = {
-  "InStyleOf": "#ff33cc",
-  "CoverOf": "#fc8d62",
-  "DirectlySamples": "#66c2a5",
-  "LyricalReferenceTo": "#984ea3",
-  "InterpolatesFrom": "#e78ac3"
+  InStyleOf: "#ff33cc",
+  CoverOf: "#fc8d62",
+  DirectlySamples: "#66c2a5",
+  LyricalReferenceTo: "#984ea3",
+  InterpolatesFrom: "#e78ac3"
 };
 
-function NotableArtistNetworkGraph({ nodes, links, yearRange, selectedInfluenceTypes, minNotables }) {
-  // States for artist list selection highlight and focus  + time selection 
-  const [selectedArtistIds, setSelectedArtistIds] = useState([]);
+// Node and edge type getters with normalization
+const getEdgeType = (link) => link.edgeType || link["Edge Type"];
+const getNodeType = (node) => node.nodeType || node["Node Type"];
+
+
+/**
+ * A force graph showing what notable artists have taken influence from Oceanus Folk songs/albums. <br />
+ * Can filter by year, influlence type and number of notables an artist/group has over all time. 
+ * @param {object} props Component props
+ * @param {array} props.nodes Array of nodes from dataset
+ * @param {array} props.links Array of edges from dataset 
+ * @param {Set<string>} props.selectedInfluenceTypes Set of valid influence type edges
+ * @param {number} [props.minNotables=0] Minimum number of notables for a performer to be filtered in
+ * 
+ * @returns {JSX.Element} The rendered network with legend, checkbox and # of notables slider
+ */
+export default function NotableArtistNetworkGraph({
+  nodes, links, yearRange, selectedInfluenceTypes, minNotables = 0
+}) {
+  // States for node focus + artist selection + oceanus folk visibility + time filtering
   const [focusedNodeId, setFocusedNodeId] = useState(null);
+  const [selectedArtistIds, setSelectedArtistIds] = useState([]);
+  const [showOceanusFolk, setOceanusFolkNodes] = useState(true);
+  const fgRef = useRef();
   const [minYear, maxYear] = yearRange;
-  const [showRedNodes, setShowRedNodes] = useState(true);
 
-  // Get nodes 
-  const normalizedNodes = useMemo(() =>
-    nodes.map(n => ({
-      ...n,
-      nodeType: n.nodeType || n["Node Type"] || null,
-      release_date: parseInt(n.release_date),
-      genre: n.genre || null,
-    })), [nodes]);
+  // Filter nodes by selected artist IDs
+  const nodeById = useMemo(() => new Map(nodes.map(n => [n.id, n])), [nodes]);
 
-  const nodeById = useMemo(() => new Map(normalizedNodes.map(n => [n.id, n])), [normalizedNodes]);
-  
-  // Get oceanus folk source music nodes
-  const influenceSources = useMemo(() => {
-    const sources = new Set();
+  // Extract oceanus folk songs/albums in year range
+  const oceanusFolkSongs = useMemo(() => {
+    return new Set(
+      nodes.filter(n =>
+        (n.genre === "Oceanus Folk") &&
+        (getNodeType(n) === "Song" || getNodeType(n) === "Album") &&
+        !isNaN(+n.release_date) &&
+        +n.release_date >= minYear &&
+        +n.release_date <= maxYear
+      ).map(n => n.id)
+    );
+  }, [nodes, minYear, maxYear]);
+
+  // Filter influence links by selected types and source oceanus folk songs
+  const influenceLinks = useMemo(() => {
+    return links.filter(link =>
+      selectedInfluenceTypes.has(getEdgeType(link)) &&
+      oceanusFolkSongs.has(link.source)
+    );
+  }, [links, selectedInfluenceTypes, oceanusFolkSongs]);
+
+  const influenceTargets = useMemo(() => new Set(influenceLinks.map(link => link.target)), [influenceLinks]);
+
+  // Map from song/album ID to Set of performer IDs
+  const songPerformers = useMemo(() => {
+    const map = new Map();
     links.forEach(link => {
-      const edgeType = link.edgeType || link["Edge Type"];
-      if (!selectedInfluenceTypes.has(edgeType)) return;
-
-      const source = nodeById.get(link.source);
-      if (!source || source.genre !== "Oceanus Folk") return;
-      if (isNaN(source.release_date) || source.release_date < minYear || source.release_date > maxYear) return;
-
-      sources.add(link.source);
+      if (getEdgeType(link) === "PerformerOf") {
+        const songId = link.target;
+        const performerId = link.source;
+        if (!map.has(songId)) map.set(songId, new Set());
+        map.get(songId).add(performerId);
+      }
     });
-    return sources;
-  }, [links, selectedInfluenceTypes, nodeById, minYear, maxYear]);
+    return map;
+  }, [links]);
 
-  // Get the target music nodes from oceanus Folk sources
-  const influenceTargets = useMemo(() => {
-    const targets = new Set();
-    links.forEach(link => {
-      const edgeType = link.edgeType || link["Edge Type"];
-      if (!selectedInfluenceTypes.has(edgeType)) return;
-      if (!influenceSources.has(link.source)) return;
-
-      targets.add(link.target);
-    });
-    return targets;
-  }, [links, selectedInfluenceTypes, influenceSources]);
-
-  // Count notable works per performer/group
+  // Count notable works per performer
   const performerNotableCounts = useMemo(() => {
     const counts = new Map();
     links.forEach(link => {
-      const edgeType = link.edgeType || link["Edge Type"];
-      if (edgeType !== "PerformerOf") return;
-
+      if (getEdgeType(link) !== "PerformerOf") return;
       const performer = link.source;
       const work = nodeById.get(link.target);
       if (!work || !work.notable) return;
-
       counts.set(performer, (counts.get(performer) || 0) + 1);
     });
     return counts;
   }, [links, nodeById]);
 
-  // Oceanus folk performers who performed songs from influenceSources
-  const oceanusFolkPerformers = useMemo(() => {
-    const performers = new Set();
-    links.forEach(link => {
-      const edgeType = link.edgeType || link["Edge Type"];
-      if (edgeType !== "PerformerOf") return;
+  // Filter out songs and performers based on # of notables
+  const filteredSongs = useMemo(() => {
+    const baseSongs = new Set([...oceanusFolkSongs, ...influenceTargets]);
+    const validSongs = new Set();
 
-      if (!influenceSources.has(link.target)) return;
+    return validSongs;
+  }, [oceanusFolkSongs, influenceTargets, songPerformers]);
 
-      performers.add(link.source);
-    });
-    return performers;
-  }, [links, influenceSources]);
-
-  // Performers influenced by Oceanus folk or related groups, filtered by minNotables for non-"Oceanus Folk"
-  const influencedPerformers = useMemo(() => {
-    const performers = new Set();
-    links.forEach(link => {
-      const edgeType = link.edgeType || link["Edge Type"];
-      if (edgeType !== "PerformerOf") return;
-
-      const performedNode = nodeById.get(link.target);
-      if (!performedNode) return;
-
-      const genre = performedNode.genre;
-      const isNotable = performedNode.notable;
-
-      if (!isNotable) return;
-      if (!influenceTargets.has(link.target)) return;
-
-      const notableCount = performerNotableCounts.get(link.source) || 0;
-      // Only include if Oceanus Folk or has enough notables
-      if (genre !== "Oceanus Folk" && notableCount < minNotables) return;
-
-      performers.add(link.source);
-    });
-    return performers;
-  }, [links, influenceTargets, nodeById, performerNotableCounts, minNotables]);
-
-  // Songs performed by Oceanus folk performers
-  const performedOceanusSongs = useMemo(() => {
-    const songIds = new Set();
-    links.forEach(link => {
-      const edgeType = link.edgeType || link["Edge Type"];
-      if (edgeType !== "PerformerOf") return;
-
-      if (oceanusFolkPerformers.has(link.source) && influenceSources.has(link.target)) {
-        songIds.add(link.target);
-      }
-    });
-    return songIds;
-  }, [links, oceanusFolkPerformers, influenceSources]);
-
-  // Songs performed by influenced performers
-  const performedInfluencedSongs = useMemo(() => {
-    const songIds = new Set();
-    links.forEach(link => {
-      const edgeType = link.edgeType || link["Edge Type"];
-      if (edgeType !== "PerformerOf") return;
-
-      if (influencedPerformers.has(link.source) && influenceTargets.has(link.target)) {
-        songIds.add(link.target);
-      }
-    });
-    return songIds;
-  }, [links, influencedPerformers, influenceTargets]);
-
-  // Build graph nodes from filtered sets
-  const graphNodes = useMemo(() => {
-    const nodesSet = new Map();
-
-    // Add oceanus folk sources
-    influenceSources.forEach(id => {
-      const n = nodeById.get(id);
-      if (n) nodesSet.set(id, { id, name: n.name || id, group: "oceanusFolkSource", genre: n.genre });
-    });
-
-    // Add oceanus folk performers
-    oceanusFolkPerformers.forEach(id => {
-      const n = nodeById.get(id);
-      if (!n) return;
-      const songLink = links.find(link =>
-        (link.edgeType || link["Edge Type"]) === "PerformerOf" &&
-        link.source === id &&
-        influenceSources.has(link.target)
-      );
-      const songNode = songLink ? nodeById.get(songLink.target) : null;
-      const genre = songNode?.genre || n.genre;
-      nodesSet.set(id, { id, name: n.name || id, group: "performer", genre });
-    });
-
-    // Add influenced performers
-    influencedPerformers.forEach(id => {
-      const n = nodeById.get(id);
-      if (!n) return;
-      const songLink = links.find(link =>
-        (link.edgeType || link["Edge Type"]) === "PerformerOf" &&
-        link.source === id &&
-        influenceTargets.has(link.target)
-      );
-      const songNode = songLink ? nodeById.get(songLink.target) : null;
-      const genre = songNode?.genre || n.genre;
-      nodesSet.set(id, { id, name: n.name || id, group: "influencedPerformer", genre });
-    });
-
-    // Add songs performed by oceanus folk performers
-    performedOceanusSongs.forEach(id => {
-      const n = nodeById.get(id);
-      if (n) nodesSet.set(id, { id, name: n.name || id, group: "song", genre: n.genre });
-    });
-
-    // Add songs performed by influenced performers
-    performedInfluencedSongs.forEach(id => {
-      const n = nodeById.get(id);
-      if (n) nodesSet.set(id, { id, name: n.name || id, group: "song", genre: n.genre });
-    });
-
-    return Array.from(nodesSet.values()).filter(node => {
-    if (!showRedNodes && node.genre === "Oceanus Folk") {
-      return false;
-    }
-    return true;
-  });
-}, [nodeById, links, influenceSources, oceanusFolkPerformers, influencedPerformers, performedOceanusSongs, performedInfluencedSongs, influenceTargets, showRedNodes]);
-
-  const validNodeIds = useMemo(() => new Set(graphNodes.map(n => n.id)), [graphNodes]);
-
-  // Filter links based on selected nodes and influence types
-  const graphLinks = useMemo(() => {
+  // Performer links filtered with minNotables and oceanus folk filtering
+  const performerLinks = useMemo(() => {
     return links.filter(link => {
-      const edgeType = link.edgeType || link["Edge Type"];
-      const sourceInSet = validNodeIds.has(link.source);
-      const targetInSet = validNodeIds.has(link.target);
+      if (getEdgeType(link) !== "PerformerOf") return false;
+      const songNode = nodeById.get(link.target);
+      if (!songNode) return false;
 
-      if (!sourceInSet || !targetInSet) return false;
+      return true; 
+    });
+  }, [links, nodeById, showOceanusFolk, performerNotableCounts, minNotables]);
 
-      if (edgeType === "PerformerOf") {
-        return (
-          (influenceSources.has(link.target) && oceanusFolkPerformers.has(link.source)) ||
-          (influenceTargets.has(link.target) && influencedPerformers.has(link.source))
-        );
+  // Compute performerLinks without filtering 
+  const preliminaryPerformerLinks = useMemo(() => {
+    return links.filter(link => {
+      if (getEdgeType(link) !== "PerformerOf") return false;
+      const songNode = nodeById.get(link.target);
+      if (!songNode) return false;
+
+      if (!showOceanusFolk && songNode.genre === "Oceanus Folk") return false;
+
+      if (songNode.genre !== "Oceanus Folk") {
+        const performerNotables = performerNotableCounts.get(link.source) || 0;
+        if (performerNotables < minNotables) return false;
       }
 
-      return selectedInfluenceTypes.has(edgeType);
-    }).map(link => ({
+      return true;
+    });
+  }, [links, nodeById, showOceanusFolk, performerNotableCounts, minNotables]);
+
+  // Get performerIds from preliminaryPerformerLinks
+  const preliminaryPerformerIds = useMemo(() => new Set(preliminaryPerformerLinks.map(link => link.source)), [preliminaryPerformerLinks]);
+
+  // Define filtered songs/albums from notables
+  const filteredSongsFinal = useMemo(() => {
+    const baseSongs = new Set([...oceanusFolkSongs, ...influenceTargets]);
+    const validSongs = new Set();
+
+    baseSongs.forEach(songId => {
+      const performers = songPerformers.get(songId);
+      if (!performers) {
+        // Keep only if Oceanus Folk or influence target
+        validSongs.add(songId);
+      } else {
+        // Keep song/album if at least one performer is visible after filtering
+        const hasVisiblePerformer = [...performers].some(p => preliminaryPerformerIds.has(p));
+        if (hasVisiblePerformer) validSongs.add(songId);
+      }
+    });
+
+    return validSongs;
+  }, [oceanusFolkSongs, influenceTargets, songPerformers, preliminaryPerformerIds]);
+
+  // Filter performerLinks on songs/alnums in filteredSongsFinal
+  const filteredPerformerLinks = useMemo(() => {
+    return preliminaryPerformerLinks.filter(link => filteredSongsFinal.has(link.target));
+  }, [preliminaryPerformerLinks, filteredSongsFinal]);
+
+  // Get final performerIds from filteredPerformerLinks
+  const performerIds = useMemo(() => new Set(filteredPerformerLinks.map(link => link.source)), [filteredPerformerLinks]);
+
+
+  const visibleNodeIds = useMemo(() => new Set([
+    ...filteredSongsFinal,
+    ...performerIds
+  ]), [filteredSongsFinal, performerIds]);
+
+  // Get those nodes that should be rendered
+  const graphNodes = useMemo(() => {
+    return Array.from(visibleNodeIds).map(id => {
+      const n = nodeById.get(id);
+      if (!n || (!showOceanusFolk && n.genre === "Oceanus Folk")) return null;
+
+      // Get artist/group genre
+      if (performerIds.has(id)) {
+        const performed = filteredPerformerLinks.find(l => l.source === id);
+        const genreFromSong = performed ? nodeById.get(performed.target)?.genre : null;
+        return {
+          id,
+          name: n.name || id,
+          group: "performer",
+          genre: genreFromSong || n.genre
+        };
+      }
+
+      return {
+        id,
+        name: n.name || id,
+        group: "song",
+        genre: n.genre
+      };
+    }).filter(Boolean);
+  }, [visibleNodeIds, nodeById, performerIds, filteredPerformerLinks, showOceanusFolk]);
+
+  // Filter out links that are not in the graph
+  const influenceAndPerformerLinks = useMemo(() => {
+    return [
+      ...influenceLinks,
+      ...filteredPerformerLinks
+    ].filter(link =>
+      graphNodes.find(n => n.id === link.source) &&
+      graphNodes.find(n => n.id === link.target)
+    ).map(link => ({
       source: link.source,
       target: link.target,
-      edgeType: link.edgeType || link["Edge Type"]
+      edgeType: getEdgeType(link)
     }));
-  }, [links, validNodeIds, influenceSources, oceanusFolkPerformers, influenceTargets, influencedPerformers, selectedInfluenceTypes]);
+  }, [influenceLinks, filteredPerformerLinks, graphNodes]);
 
-  const fgRef = useRef();
-
+  // Set the force graph simulation parameters, -1 makes it tight but messy
   useEffect(() => {
     if (!fgRef.current) return;
-
     fgRef.current.d3Force('charge').strength(-1);
     fgRef.current.d3Force('link').distance(50);
     fgRef.current.d3Force('collision', forceCollide(15));
+    fgRef.current.d3Force('charge').simulation?.alpha(1).restart();
+  }, [graphNodes, influenceAndPerformerLinks]);
 
-    if (fgRef.current.d3Force('charge').simulation) {
-      fgRef.current.d3Force('charge').simulation.alpha(1).restart();
-    } else if (typeof fgRef.current.refresh === 'function') {
-      fgRef.current.refresh();
-    }
-  }, [graphNodes, graphLinks]);
-
+  // Style legend
   const legendStyle = {
     display: 'flex',
-    gap: '20px',
-    padding: '5px',
-    fontSize: '8px',
-    alignItems: 'center',
-    userSelect: 'none',
-    backgroundColor: '#fff',
-    maxWidth: '550px',
+    gap: '10px',
+    fontSize: 10,
+    marginBottom: '10px',
+    flexWrap: 'wrap', 
+    backgroundColor: 'white', 
+    padding: '7px',
+    borderRadius: '5px'
   };
 
-  const shapeStyle = {
+  // Legend box style
+  const box = (color) => ({
     display: 'inline-block',
-    width: '8px',
-    height: '8px',
-    marginRight: '6px',
-    verticalAlign: 'middle',
-  };
+    width: '12px',
+    height: '12px',
+    backgroundColor: color,
+    marginRight: '5px'
+  });
 
   return (
     <div style={{ display: 'flex', alignItems: 'flex-start', gap: '20px' }}>
       <div style={{ maxWidth: 150, maxHeight: 200, overflowY: 'auto' }}>
+        {/* List of artists/groups for selection */}
         <ArtistSelector
-          options={graphNodes
-            .filter(n => n.group === 'performer' || n.group === 'influencedPerformer')
-            .sort((a, b) => a.name.localeCompare(b.name))
-          }
+          options={graphNodes.filter(n => n.group === 'performer').sort((a, b) => a.name.localeCompare(b.name))}
           selectedIds={selectedArtistIds}
           onChange={(ids) => {
             setSelectedArtistIds(ids);
@@ -295,39 +270,54 @@ function NotableArtistNetworkGraph({ nodes, links, yearRange, selectedInfluenceT
           }}
         />
       </div>
-
+      
+      {/* Render legend */}
       <div>
         <div style={legendStyle}>
-          <div>
-            <span style={{ ...shapeStyle, backgroundColor: '#666', clipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)' }}></span>
-            Song/Album
-          </div>
-          <div>
-            <span style={{ ...shapeStyle, backgroundColor: '#666', borderRadius: '50%' }}></span>
-            Artist/Music Group
-          </div>
+          <div><span style={{ ...box("#666"), clipPath: 'inset(0)' }} /> Song/Album</div>
+          <div><span style={{ ...box("#666"), borderRadius: '50%' }} /> Artist</div>
+          {Object.entries(influenceTypeColors).map(([type, color]) => (
+            <div key={type}><span style={{ ...box(color) }} /> {type}</div>
+          ))}
         </div>
-
+        
+        {/* Render graph */}
         <ForceGraph2D
-          ref={fgRef}
-           graphData={{ nodes: graphNodes, links: graphLinks }}
+          ref={fgRef} // Reference to the graph
+          graphData={{ nodes: graphNodes, links: influenceAndPerformerLinks }}
           nodeLabel={node => `${node.name} (${node.genre || node.group})`}
-          linkLabel={link => `Influence Type: ${link.edgeType || 'Unknown'}`}
+          linkLabel={link => `Influence Type: ${link.edgeType}`}
+
+          // Adjust links based on type influence or performer
+          linkWidth={link => {
+            const isInfluence = link.edgeType !== "PerformerOf";
+            const isSelected = selectedInfluenceTypes.has(link.edgeType);
+            return isInfluence ? (isSelected ? 4 : 1.5) : 1;
+          }}
+
+          // Color links based on influence type
+          linkColor={link => {
+            const edgeType = link.edgeType;
+            const baseColor = influenceTypeColors[edgeType] || '#4d4d4d';
+            const isSelected = selectedInfluenceTypes.has(edgeType);
+            const opacity = isSelected ? 0.55 : 0.2;
+
+            const c = d3.color(baseColor);
+            if (c) {
+              c.opacity = opacity;
+              return c.formatRgb();
+            }
+            return baseColor;
+          }}
+          // Color nodes based on their genre
           nodeCanvasObject={(node, ctx, globalScale) => {
             const label = node.name;
-            const isFocused = focusedNodeId === node.id;
-            const baseFontSize = 10;
-            const fontSize = (isFocused ? baseFontSize + 5 : baseFontSize) / globalScale;
+            const fontSize = (focusedNodeId === node.id ? 15 : 10) / globalScale;
+            ctx.font = `${focusedNodeId === node.id ? "bold " : ""}${fontSize}px Sans-Serif`;
 
-            ctx.font = `${isFocused ? "bold " : ""}${fontSize}px Sans-Serif`;
-
-            const color = genreColor(node.genre);
-            ctx.fillStyle = color;
-
-            const squareGroups = new Set(["song"]);
-            if (squareGroups.has(node.group)) {
-              const size = 10;
-              ctx.fillRect(node.x - size / 2, node.y - size / 2, size, size);
+            ctx.fillStyle = genreColor(node.genre);
+            if (node.group === "song") {
+              ctx.fillRect(node.x - 5, node.y - 5, 10, 10);
             } else {
               ctx.beginPath();
               ctx.arc(node.x, node.y, 6, 0, 2 * Math.PI, false);
@@ -337,31 +327,23 @@ function NotableArtistNetworkGraph({ nodes, links, yearRange, selectedInfluenceT
             ctx.fillStyle = "#4d4d4d";
             ctx.fillText(label, node.x + 6, node.y + 3);
           }}
+          // Sizes of edges arrows
           linkDirectionalArrowLength={15}
           linkDirectionalArrowRelPos={1}
           width={700}
-          height={250}
-          linkWidth={link => selectedInfluenceTypes.has(link.edgeType) ? 4 : 2}
-          linkColor={link => {
-            const baseColor = influenceTypeColors[link.edgeType];
-            if (baseColor && selectedInfluenceTypes.has(link.edgeType)) {
-              return d3.color(baseColor).copy({ opacity: 0.55 }).formatRgb();
-            } else {
-              return d3.color('#4d4d4d').copy({ opacity: 0.2 }).formatRgb();
-            }
-          }}
+          height={300}
         />
       </div>
-      <div style={{ marginLeft: -150 }}>
-  <input
-    type="checkbox"
-    checked={showRedNodes}
-    onChange={() => setShowRedNodes(!showRedNodes)}
-  />
-  <label style={{ fontSize: 10 }}>Show/Hide Oceanus Folk nodes</label>
-</div>
+      {/* Checkbox to show/hide oceanus folk nodes */}
+      <div style={{ marginLeft: -120, marginTop: 2 }}>
+        <label style={{ fontSize: 8 }}>
+          <input
+            type="checkbox"
+            checked={showOceanusFolk}
+            onChange={() => setOceanusFolkNodes(!showOceanusFolk)}
+          /> Show Oceanus Folk
+        </label>
+      </div>
     </div>
   );
 }
-
-export default NotableArtistNetworkGraph;
