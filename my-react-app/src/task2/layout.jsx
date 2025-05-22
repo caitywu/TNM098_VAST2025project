@@ -14,7 +14,7 @@ export default function Layout() {
           right: 0,
           zIndex: 500,
           backgroundColor: '#f4f4f4',
-          padding: '0.5rem 0.5rem',
+          padding: '0.25rem 0.25rem',
           boxShadow: '0 2px 5px rgba(0,0,0,0.1)',
         }}
       >

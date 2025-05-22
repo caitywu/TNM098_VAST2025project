@@ -157,8 +157,8 @@ export default function Task2Main() {
     >
 
       {/* Top Left: Network */}
-      <div style={{ gridColumn: '1 / 3', gridRow: '1', padding: '5px', overflow: 'auto' }}>
-        <h4>Network</h4>
+      <div style={{ gridColumn: '1 / 3', gridRow: '1', padding: '1px', overflow: 'auto' }}>
+        <h4 style={{fontSize: '11px', fontWeight: 'bold'}}>Network</h4>
         <div style={{ marginBottom: '5px', fontSize: '8px' }}>
           {["InStyleOf", "DirectlySamples", "CoverOf", "LyricalReferenceTo", "InterpolatesFrom"].map(type => (
             <label key={type} style={{ marginRight: '1px' }}>
@@ -219,8 +219,8 @@ export default function Task2Main() {
       </div>
 
       {/* Top Right:Influence type histogram */}
-      <div style={{ gridColumn: '3', gridRow: '1', padding: '1px', overflowY: 'auto' }}>
-        <h4>Outgoing Oceanus Folk</h4>
+      <div style={{ gridColumn: '3', gridRow: '1', padding: '1px', overflowY: 'visible' }}>
+        <h4 style={{fontSize: '11px', fontWeight: 'bold'}}>Outgoing Oceanus Folk</h4>
         <InfluenceTypeStackedHistogram
           data={influenceTypeData}
           width={200}
@@ -231,7 +231,7 @@ export default function Task2Main() {
 
       {/* Bottom Left: Histogram */}
       <div style={{ gridColumn: '1', gridRow: '2', padding: '10px' }}>
-        <h4>Stacked Histogram</h4>
+        <h4 style={{fontSize: '11px', fontWeight: 'bold'}}>Stacked Histogram</h4>
         {yearlyGenreTotals ? (
           <StackedHistogram
             data={yearlyGenreTotals}
@@ -255,7 +255,7 @@ export default function Task2Main() {
         maxWidth: '280px',
         justifySelf: 'end',
       }}>
-        <h2 style={{ textAlign: 'center' }}>Genre List</h2>
+        <h4 style={{fontSize: '14px', fontWeight: 'bold', textAlign: 'center'}}>Genre List</h4>
         <ul style={{ listStyleType: 'none', paddingLeft: 0 }}>
           {genreList.map((genre, idx) => (
             <li
@@ -275,9 +275,20 @@ export default function Task2Main() {
         </ul>
       </div>
 
+      
+
       {/* Bottom right: Genre Info */}
-      <div style={{ gridColumn: '3', gridRow: '2', padding: '10px' }}>
-        <h4># of activities in the genre histogram are aggregated values of:</h4>
+      <div style={{ gridColumn: '3', gridRow: '2', padding: '1px' }}>
+           <h4 style={{fontSize: '11px', fontWeight: 'bold'}}>Network & Influence Histogram Info: </h4>
+          <p style={{ fontSize: 10 }}>
+          - Network shows outgoing influences from Oceanus Folk to other genres. Filtering on number
+          of notables affects only non-oceanus folk Artists or Music groups. <br></br> - The influence type
+          histogram shows outgoing influences from oceanus folk (not including influences within
+          oceanus folk.)
+          </p>
+          {/* <OceanusFolkInfluenceBarChart data={influenceData} /> */}
+        <h4 style={{fontSize: '11px', fontWeight: 'bold'}}>Bottom Stacked Histogram Info:</h4>
+        <p style={{ fontSize: 10 }}> # of activities aggregated values of the following </p>
         <ul style={{ listStyleType: 'none', paddingLeft: 0, fontSize: '11px' }}>
           <li>songs</li>
           <li>albums</li>
@@ -312,7 +323,8 @@ export default function Task2Main() {
   color: '#000',
   fontWeight: 'bold',
   textAlign: 'center',
-  transform: 'translateY(20px)',
+          transform: 'translateY(20px)',
+          fontSize: '11px',
 }}>
   Range: {selectedYearRange[0]} – {selectedYearRange[1]}
 </div>

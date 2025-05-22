@@ -243,7 +243,7 @@ function NotableArtistNetworkGraph({ nodes, links, yearRange, selectedInfluenceT
   useEffect(() => {
     if (!fgRef.current) return;
 
-    fgRef.current.d3Force('charge').strength(-15);
+    fgRef.current.d3Force('charge').strength(-1);
     fgRef.current.d3Force('link').distance(50);
     fgRef.current.d3Force('collision', forceCollide(15));
 
