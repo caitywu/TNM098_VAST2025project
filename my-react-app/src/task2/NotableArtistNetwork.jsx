@@ -25,10 +25,13 @@ const influenceTypeColors = {
 };
 
 function NotableArtistNetworkGraph({ nodes, links, yearRange, selectedInfluenceTypes, minNotables }) {
+  // States for artist list selection highlight and focus  + time selection 
   const [selectedArtistIds, setSelectedArtistIds] = useState([]);
   const [focusedNodeId, setFocusedNodeId] = useState(null);
   const [minYear, maxYear] = yearRange;
+  const [showRedNodes, setShowRedNodes] = useState(true);
 
+  // Get nodes 
   const normalizedNodes = useMemo(() =>
     nodes.map(n => ({
       ...n,
@@ -38,7 +41,8 @@ function NotableArtistNetworkGraph({ nodes, links, yearRange, selectedInfluenceT
     })), [nodes]);
 
   const nodeById = useMemo(() => new Map(normalizedNodes.map(n => [n.id, n])), [normalizedNodes]);
-
+  
+  // Get oceanus folk source music nodes
   const influenceSources = useMemo(() => {
     const sources = new Set();
     links.forEach(link => {
@@ -54,6 +58,7 @@ function NotableArtistNetworkGraph({ nodes, links, yearRange, selectedInfluenceT
     return sources;
   }, [links, selectedInfluenceTypes, nodeById, minYear, maxYear]);
 
+  // Get the target music nodes from oceanus Folk sources
   const influenceTargets = useMemo(() => {
     const targets = new Set();
     links.forEach(link => {
@@ -153,11 +158,13 @@ function NotableArtistNetworkGraph({ nodes, links, yearRange, selectedInfluenceT
   const graphNodes = useMemo(() => {
     const nodesSet = new Map();
 
+    // Add oceanus folk sources
     influenceSources.forEach(id => {
       const n = nodeById.get(id);
       if (n) nodesSet.set(id, { id, name: n.name || id, group: "oceanusFolkSource", genre: n.genre });
     });
 
+    // Add oceanus folk performers
     oceanusFolkPerformers.forEach(id => {
       const n = nodeById.get(id);
       if (!n) return;
@@ -171,6 +178,7 @@ function NotableArtistNetworkGraph({ nodes, links, yearRange, selectedInfluenceT
       nodesSet.set(id, { id, name: n.name || id, group: "performer", genre });
     });
 
+    // Add influenced performers
     influencedPerformers.forEach(id => {
       const n = nodeById.get(id);
       if (!n) return;
@@ -184,18 +192,25 @@ function NotableArtistNetworkGraph({ nodes, links, yearRange, selectedInfluenceT
       nodesSet.set(id, { id, name: n.name || id, group: "influencedPerformer", genre });
     });
 
+    // Add songs performed by oceanus folk performers
     performedOceanusSongs.forEach(id => {
       const n = nodeById.get(id);
       if (n) nodesSet.set(id, { id, name: n.name || id, group: "song", genre: n.genre });
     });
 
+    // Add songs performed by influenced performers
     performedInfluencedSongs.forEach(id => {
       const n = nodeById.get(id);
       if (n) nodesSet.set(id, { id, name: n.name || id, group: "song", genre: n.genre });
     });
 
-    return Array.from(nodesSet.values());
-  }, [nodeById, links, influenceSources, oceanusFolkPerformers, influencedPerformers, performedOceanusSongs, performedInfluencedSongs, influenceTargets]);
+    return Array.from(nodesSet.values()).filter(node => {
+    if (!showRedNodes && node.genre === "Oceanus Folk") {
+      return false;
+    }
+    return true;
+  });
+}, [nodeById, links, influenceSources, oceanusFolkPerformers, influencedPerformers, performedOceanusSongs, performedInfluencedSongs, influenceTargets, showRedNodes]);
 
   const validNodeIds = useMemo(() => new Set(graphNodes.map(n => n.id)), [graphNodes]);
 
@@ -228,7 +243,7 @@ function NotableArtistNetworkGraph({ nodes, links, yearRange, selectedInfluenceT
   useEffect(() => {
     if (!fgRef.current) return;
 
-    fgRef.current.d3Force('charge').strength(-1);
+    fgRef.current.d3Force('charge').strength(-15);
     fgRef.current.d3Force('link').distance(50);
     fgRef.current.d3Force('collision', forceCollide(15));
 
@@ -295,7 +310,7 @@ function NotableArtistNetworkGraph({ nodes, links, yearRange, selectedInfluenceT
 
         <ForceGraph2D
           ref={fgRef}
-          graphData={{ nodes: graphNodes, links: graphLinks }}
+           graphData={{ nodes: graphNodes, links: graphLinks }}
           nodeLabel={node => `${node.name} (${node.genre || node.group})`}
           linkLabel={link => `Influence Type: ${link.edgeType || 'Unknown'}`}
           nodeCanvasObject={(node, ctx, globalScale) => {
@@ -337,6 +352,14 @@ function NotableArtistNetworkGraph({ nodes, links, yearRange, selectedInfluenceT
           }}
         />
       </div>
+      <div style={{ marginLeft: -150 }}>
+  <input
+    type="checkbox"
+    checked={showRedNodes}
+    onChange={() => setShowRedNodes(!showRedNodes)}
+  />
+  <label style={{ fontSize: 10 }}>Show/Hide Oceanus Folk nodes</label>
+</div>
     </div>
   );
 }

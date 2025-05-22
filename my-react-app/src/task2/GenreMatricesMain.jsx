@@ -1,94 +1,74 @@
 import React, { useEffect, useState } from 'react';
 import { loadGraphData } from './dataLoader';
-import { computeGenreInfluenceMatrix } from './GenreMetrics';
-import { GenreInfluenceMatrix } from './GenreInfluenceMatrix';
 import ReactSlider from 'react-slider';
 import './CustomSlider.css';
+import GenreInfluenceMatrix from './GenreInfluenceMatrix';
 
 export default function GenreMatrixMain() {
   const [data, setData] = useState(null);
-  const [selectedYearRange, setSelectedYearRange] = useState([2000, 2000]);
   const [minMaxYear, setMinMaxYear] = useState([2000, 2030]);
-  const [influenceMatrixData, setInfluenceMatrixData] = useState(null);
-  const [reverseDirection, setReverseDirection] = useState(false);
+
+  const [leftYearRange, setLeftYearRange] = useState([1975, 2040]);
+  const [leftMode, setLeftMode] = useState('outgoing');
+
+  const [rightYearRange, setRightYearRange] = useState([1975, 2040]);
+  const [rightMode, setRightMode] = useState('outgoing');
 
   useEffect(() => {
-    loadGraphData('/MC1_graph.json').then(graph => {
-      setData(graph);
+  loadGraphData('/MC1_graph.json').then(graph => {
+    setData(graph);
 
-      const years = graph.nodes
-        .filter(n => n.nodeType === "Song" || n["Node Type"] === "Song")
-        .map(n => parseInt(n.release_date))
-        .filter(y => !isNaN(y));
+    const years = graph.nodes
+      .filter(n => n.nodeType === "Song" || n["Node Type"] === "Song")
+      .map(n => parseInt(n.release_date))
+      .filter(y => !isNaN(y));
 
-      const minYear = Math.min(...years);
-      const maxYear = Math.max(...years);
+    const minYear = Math.min(...years);
+    const maxYear = Math.max(...years);
 
-      setMinMaxYear([minYear, maxYear]);
-      setSelectedYearRange([minYear, maxYear]); // full range initially
-    });
-  }, []);
+    setMinMaxYear([minYear, maxYear]);
 
-  useEffect(() => {
-    if (!data) return;
+    // Left slider: full range
+    setLeftYearRange([minYear, maxYear]);
 
-    const { matrix, genres } = computeGenreInfluenceMatrix(
-      data.nodes,
-      data.links,
-      selectedYearRange,
-      reverseDirection
-    );
+    // Right slider: clamp to [2023, 2040]
+    const desiredRightStart = 2023;
+    const desiredRightEnd = 2040;
+    const rightStart = Math.max(minYear, desiredRightStart);
+    const rightEnd = Math.min(maxYear, desiredRightEnd);
 
-    const newData = { matrix, genres };
-    const dataString = JSON.stringify(newData);
-    const prevString = JSON.stringify(influenceMatrixData);
-
-    if (dataString !== prevString) {
-      setInfluenceMatrixData(newData);
-    }
-  }, [data, selectedYearRange, reverseDirection]);
+    setRightYearRange([rightStart, rightEnd]);
+  });
+}, []);
 
   return (
     <div
       style={{
         display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
+        gridTemplateColumns: '1fr 2px 1fr',
         gap: '20px',
-        height: '90vh',
+        height: '100vh',
         padding: '20px',
+        overflow: 'hidden',
       }}
     >
-      {/* Left Placeholder */}
-      <div style={{ border: '1px dashed #aaa', borderRadius: '8px', padding: '10px' }}>
-        <h3>Placeholder for another matrix</h3>
-      </div>
+      {/* LEFT Matrix */}
+      <div style={{ overflow: 'auto', maxHeight: '100%', display: 'flex', flexDirection: 'column' }}>
+        <h4>Genre Influence Matrix (Left)</h4>
 
-      {/* Right: Influence Matrix */}
-      <div style={{ overflow: 'visible', justifySelf: 'end' }}>
-        <h2>Genre Influence Matrix</h2>
-        <label style={{ userSelect: 'none', marginBottom: '8px', display: 'inline-block' }}>
+        <label style={{ fontSize: '10px' }}>
           <input
             type="checkbox"
-            checked={reverseDirection}
-            onChange={e => setReverseDirection(e.target.checked)}
-            style={{ marginRight: 6 }}
-          />
-          Show influence in reverse direction
+            checked={leftMode === 'incoming'}
+            onChange={() =>
+              setLeftMode(prev => (prev === 'outgoing' ? 'incoming' : 'outgoing'))
+            }
+          /> Show Incoming
         </label>
 
-        {influenceMatrixData ? (
-          <GenreInfluenceMatrix
-            matrix={influenceMatrixData.matrix}
-            genres={influenceMatrixData.genres}
-          />
-        ) : (
-          <p>Loading matrix...</p>
-        )}
-
-        {/* Year Range Slider */}
-        <div style={{ marginTop: '20px', width: '80%' }}>
+        <div style={{ marginTop: '8px', width: '80%' }}>
           <label style={{ color: '#000', fontWeight: 'bold' }}>
-            Years: {selectedYearRange[0]} – {selectedYearRange[1]}
+            Years: {leftYearRange[0]} – {leftYearRange[1]}
           </label>
           <ReactSlider
             className="custom-slider"
@@ -96,12 +76,71 @@ export default function GenreMatrixMain() {
             trackClassName="custom-track"
             min={minMaxYear[0]}
             max={minMaxYear[1]}
-            value={selectedYearRange}
-            onChange={setSelectedYearRange}
+            value={leftYearRange}
+            onChange={setLeftYearRange}
             pearling
-            minDistance={1}
+            minDistance={0}
           />
         </div>
+
+        {data && (
+          <GenreInfluenceMatrix
+            nodes={data.nodes}
+            links={data.links}
+            yearRange={leftYearRange}
+            mode={leftMode}
+          />
+        )}
+      </div>
+
+      {/* Vertical Divider */}
+      <div
+        style={{
+          width: '2px',
+          backgroundColor: '#ccc',
+          height: '100%',
+        }}
+      />
+
+      {/* RIGHT Matrix */}
+      <div style={{ overflow: 'auto', maxHeight: '100%', display: 'flex', flexDirection: 'column' }}>
+        <h4>Genre Influence Matrix (Right)</h4>
+
+        <label style={{ fontSize: '10px' }}>
+          <input
+            type="checkbox"
+            checked={rightMode === 'incoming'}
+            onChange={() =>
+              setRightMode(prev => (prev === 'outgoing' ? 'incoming' : 'outgoing'))
+            }
+          /> Show Incoming
+        </label>
+
+        <div style={{ marginTop: '8px', width: '80%' }}>
+          <label style={{ color: '#000', fontWeight: 'bold' }}>
+            Years: {rightYearRange[0]} – {rightYearRange[1]}
+          </label>
+          <ReactSlider
+            className="custom-slider"
+            thumbClassName="custom-thumb"
+            trackClassName="custom-track"
+            min={minMaxYear[0]}
+            max={minMaxYear[1]}
+            value={rightYearRange}
+            onChange={setRightYearRange}
+            pearling
+            minDistance={0}
+          />
+        </div>
+
+        {data && (
+          <GenreInfluenceMatrix
+            nodes={data.nodes}
+            links={data.links}
+            yearRange={rightYearRange}
+            mode={rightMode}
+          />
+        )}
       </div>
     </div>
   );

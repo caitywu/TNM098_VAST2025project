@@ -1,5 +1,4 @@
-// main task 2
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { loadGraphData } from './dataLoader';
 import {
   computeGenreMetrics,
@@ -34,100 +33,105 @@ function genreColor(genre) {
   return "#000000";
 }
 
-// Main component
 export default function Task2Main() {
-  // State variables
   const [data, setData] = useState(null); // state for graph data
-  const [genreStats, setGenreStats] = useState([]); // State for filtering genre stats
-  const [highlightedGenre, setHighlightedGenre] = useState(null); // State for highlighting genres
-  const [selectedYear, setSelectedYear] = useState(2000); // State for year selection
-  const [minMaxYear, setMinMaxYear] = useState([2000, 2030]); // State for min and max year
-  const [influenceData, setInfluenceData] = useState(null); // State for influence computations
-  const [showSailorShiftGenres, setShowSailorShiftGenres] = useState(false); // State for showing sailor shift genres
-  const [globalDomain, setGlobalDomain] = useState(null); // State for global time domain
-  const [yearlyGenreTotals, setYearlyGenreTotals] = useState(null); // State for yearly genre totals
-  const [influenceTypeData, setInfluenceTypeData] = useState(null); // State for influence types per year
-  const [minNotables, setMinNotables] = useState(0); // State for filtering on # of notables
-  // State selecting the year range based on the graph data on release date
+  const [genreStats, setGenreStats] = useState([]); // state for genre stats on the stacked histogram
+  const [highlightedGenre, setHighlightedGenre] = useState(null); // State for highlighting gneres in stackd histogram
+
+  const [selectedYear, setSelectedYear] = useState(2000); // State for year selection 
+  const [selectedYearRange, setSelectedYearRange] = useState([2000, 2000]);
+  const [minMaxYear, setMinMaxYear] = useState([2000, 2030]);
+
+  const [influenceData, setInfluenceData] = useState(null);
+  const [showSailorShiftGenres, setShowSailorShiftGenres] = useState(false);
+  const [globalDomain, setGlobalDomain] = useState(null);
+
+  const [yearlyGenreTotals, setYearlyGenreTotals] = useState(null); // state to count stacked histogram genres 
+  const [influenceTypeData, setInfluenceTypeData] = useState(null); // checkbox state for influence histogram + network
+  const [minNotables, setMinNotables] = useState(0); // Network state for notables filtering
+
+  // Influence types state
   const [selectedInfluenceTypes, setSelectedInfluenceTypes] = useState(new Set([
     "InStyleOf",
     "DirectlySamples",
     "CoverOf",
-    "LyricalReferenceTo", 
+    "LyricalReferenceTo",
     "InterpolatesFrom",
   ]));
 
-  const yearRange = [selectedYear, selectedYear];
+  // Get the year range from the dataset 
+  const yearRange = selectedYearRange;
 
-  // Effect to load graph data
   useEffect(() => {
+    // Load graph data from file
     loadGraphData('/MC1_graph.json').then(graph => {
-      setData(graph);
+    setData(graph);
+    
+    // Find min and max years from release dates in data
+    const years = graph.nodes
+      .filter(n => n.nodeType === "Song" || n["Node Type"] === "Song")
+      .map(n => parseInt(n.release_date))
+      .filter(y => !isNaN(y));
 
-      // Get year range from graph data on release date
-      const years = graph.nodes
-        .filter(n => n.nodeType === "Song" || n["Node Type"] === "Song")
-        .map(n => parseInt(n.release_date))
-        .filter(y => !isNaN(y));
+    const minYear = Math.min(...years);
+    const maxYear = Math.max(...years);
+    
+    // Initialize startup year range
+    const desiredStart = 1995;
+    const desiredEnd = 2005;
+    const start = Math.max(minYear, desiredStart);
+    const end = Math.min(maxYear, desiredEnd);
 
-      const minYear = Math.min(...years);
-      const maxYear = Math.max(...years);
+    setMinMaxYear([minYear, maxYear]);
+    setSelectedYearRange([start, end]);
 
-      setMinMaxYear([minYear, maxYear]);
-      setSelectedYear(minYear);
+    const totals = computeGenreYearlyTotals(graph.nodes, [minYear, maxYear]);
+    setYearlyGenreTotals(totals);
 
-      // Geet all years to compute totals 
-      const totals = computeGenreYearlyTotals(graph.nodes, [minYear, maxYear]);
-      setYearlyGenreTotals(totals);
-
-      // Compute counts for each genre for entire year range of the dataset
-      const fullGenreStats = computeGenreMetrics(graph.nodes, graph.links, [minYear, maxYear]);
-      setGlobalDomain(() => {
-        const domain = {};
-        for (const dim of dimensions) {
-          const values = fullGenreStats.map(d => d[dim]);
-          domain[dim] = [0, Math.max(...values)];
-        }
-        return domain;
-      });
+    const fullGenreStats = computeGenreMetrics(graph.nodes, graph.links, [minYear, maxYear]);
+    setGlobalDomain(() => {
+      const domain = {};
+      for (const dim of dimensions) {
+        const values = fullGenreStats.map(d => d[dim]);
+        domain[dim] = [0, Math.max(...values)];
+      }
+      return domain;
     });
-  }, []);
+  });
+}, []);
 
-  // Effect to compute genre metrics and influence data
   useEffect(() => {
     if (!data) return;
-
+    // Compute genre metrics for the selected year range
     const allStats = computeGenreMetrics(data.nodes, data.links, yearRange);
 
-    // Filter out genres to only those done by Sailor Shift
     if (showSailorShiftGenres) {
       const sailorGenres = getSailorShiftGenres(data.nodes, data.links, yearRange);
       setGenreStats(allStats.filter(stat => sailorGenres.includes(stat.genre)));
     } else {
       setGenreStats(allStats);
     }
-
+    
+    // Compute the influence type histogram
     setInfluenceData(computeOceanusFolkInfluences(data.nodes, data.links, yearRange));
-  }, [selectedYear, data, showSailorShiftGenres]);
+  }, [selectedYearRange, data, showSailorShiftGenres]);
 
-  // Effect to compute influence type data 
   useEffect(() => {
-  if (!data) return;
-  
-  // Compute count of influence types 
-  const counts = computeOceanusFolkInfluenceTypeCounts(
-    data.nodes,
-    data.links,
-    selectedInfluenceTypes,
-    minMaxYear 
-  );
-  setInfluenceTypeData(counts);
-}, [data, selectedInfluenceTypes, minMaxYear]);
+    if (!data) return;
 
-  // Get a list of unique genres
+    const counts = computeOceanusFolkInfluenceTypeCounts(
+      data.nodes,
+      data.links,
+      selectedInfluenceTypes,
+      minMaxYear
+    );
+    setInfluenceTypeData(counts);
+  }, [data, selectedInfluenceTypes, minMaxYear]);
+
   const genreList = genreStats.map(g => g.genre).sort();
 
-  const dynamicDomain = React.useMemo(() => {
+  // Show genre stats
+  const dynamicDomain = useMemo(() => {
     if (!genreStats || genreStats.length === 0) return null;
 
     const domain = {};
@@ -153,7 +157,7 @@ export default function Task2Main() {
     >
 
       {/* Top Left: Network */}
-      <div style={{ gridColumn: '1 / 3', gridRow: '1', padding: '5px', borderRadius: '1px', overflow: 'auto' }}>
+      <div style={{ gridColumn: '1 / 3', gridRow: '1', padding: '5px', overflow: 'auto' }}>
         <h4>Network</h4>
         <div style={{ marginBottom: '5px', fontSize: '8px' }}>
           {["InStyleOf", "DirectlySamples", "CoverOf", "LyricalReferenceTo", "InterpolatesFrom"].map(type => (
@@ -164,11 +168,7 @@ export default function Task2Main() {
                 onChange={() =>
                   setSelectedInfluenceTypes(prev => {
                     const newSet = new Set(prev);
-                    if (newSet.has(type)) {
-                      newSet.delete(type);
-                    } else {
-                      newSet.add(type);
-                    }
+                    newSet.has(type) ? newSet.delete(type) : newSet.add(type);
                     return newSet;
                   })
                 }
@@ -178,7 +178,7 @@ export default function Task2Main() {
           ))}
         </div>
 
-        {/* Vertical Slider next to Network */}
+         {/* Vertical Slider next to Network */}
         <div style={{
           position: 'absolute',
           top: '80px',
@@ -200,13 +200,13 @@ export default function Task2Main() {
         trackClassName="custom-track"
         orientation="vertical"
         min={0}
-        max={50}
+        max={500}
         value={minNotables}
         onChange={setMinNotables}
         style={{ height: '100%', width: '60px' }}
       />
         </div>
-        {/* Create the network graph */}
+
         {data && (
           <NotableArtistNetworkGraph
             nodes={data.nodes}
@@ -218,27 +218,33 @@ export default function Task2Main() {
         )}
       </div>
 
-      {/* Influence type histogram */}
-      <div style={{ gridColumn: '3', gridRow: '1', padding: '1px', borderRadius: '2px', overflowY: 'auto' }}>
-        <h4 style={{ padding: '0px' }}>Outgoing Oceanus Folk</h4>
-        {/* <p style={{ fontSize: '8px', padding: '0px' }}>exluding oceanusFolk internals</p> */}
-          <InfluenceTypeStackedHistogram data={influenceTypeData} width={200} height={270} yearRange={[1975, 2040]} />
+      {/* Top Right:Influence type histogram */}
+      <div style={{ gridColumn: '3', gridRow: '1', padding: '1px', overflowY: 'auto' }}>
+        <h4>Outgoing Oceanus Folk</h4>
+        <InfluenceTypeStackedHistogram
+          data={influenceTypeData}
+          width={200}
+          height={270}
+          yearRange={[1975, 2040]}
+        />
       </div>
 
       {/* Bottom Left: Histogram */}
-      <div style={{ gridColumn: '1', gridRow: '2', padding: '10px', borderRadius: '8px', maxWidth: '1000px' }}>
+      <div style={{ gridColumn: '1', gridRow: '2', padding: '10px' }}>
         <h4>Stacked Histogram</h4>
-          {yearlyGenreTotals ? (
-            <StackedHistogram
-              data={yearlyGenreTotals}
-              width={950} height={170}
-            highlightedGenre={highlightedGenre}/>
-          ) : (
-        <p>Loading histogram data...</p>
-      )}
+        {yearlyGenreTotals ? (
+          <StackedHistogram
+            data={yearlyGenreTotals}
+            width={950}
+            height={170}
+            highlightedGenre={highlightedGenre}
+          />
+        ) : (
+          <p>Loading histogram data...</p>
+        )}
       </div>
 
-      {/* Scrollable Genre List */}
+      {/* Bottom center: Genre List */}
       <div style={{
         gridColumn: '2',
         gridRow: '2',
@@ -269,41 +275,20 @@ export default function Task2Main() {
         </ul>
       </div>
 
-      {/* Info on genre histogram */}
-      <div style={{
-        gridColumn: '3',
-        gridRow: '2',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '10px'
-      }}>
-        <div style={{ flex: 1, padding: '10px', borderRadius: '8px' }}> 
-          {/* <h4></h4> */}
-          {/* <p style={{ fontSize: 10 }}>The influence histogram does not consider internal Oceanus Folk influences,
-            only influences spread to
-          </p> */}
-          {/* <OceanusFolkInfluenceBarChart data={influenceData} /> */}
-
-          <h4> # of activites in the genre historgram are aggregated values of:  </h4>
-          {/* <p></p> */}
-          <ul style={{ listStyleType: 'none', paddingLeft: 0, fontSize: '11px' }}>
-            <li>songs</li>
-            <li>albums</li>
-            <li>record labels</li>
-            <li>artists + groups</li>
-            <li>notables</li>
-            <li>lyricists + composers</li>
-          </ul>
-        </div> 
-
-        
-        {/* <div style={{ flex: 1, padding: '10px', borderRadius: '8px' }}>
-          <h4>Oceanus Folk Over Time</h4>
-        </div> */}
+      {/* Bottom right: Genre Info */}
+      <div style={{ gridColumn: '3', gridRow: '2', padding: '10px' }}>
+        <h4># of activities in the genre histogram are aggregated values of:</h4>
+        <ul style={{ listStyleType: 'none', paddingLeft: 0, fontSize: '11px' }}>
+          <li>songs</li>
+          <li>albums</li>
+          <li>record labels</li>
+          <li>artists + groups</li>
+          <li>notables</li>
+          <li>lyricists + composers</li>
+        </ul>
       </div>
 
-
-      {/* Year Slider */}
+      {/* Bottom: Bottom Time Slider */}
       <div style={{
         position: 'absolute',
         bottom: '10px',
@@ -312,25 +297,25 @@ export default function Task2Main() {
         width: '70%',
         padding: '10px',
       }}>
-
-        {/* Scented widget for time slider*/}
         <ReactSlider
-          className="custom-slider"
-          thumbClassName="custom-thumb"
-          trackClassName="custom-track"
-          min={minMaxYear[0]}
-          max={minMaxYear[1]}
-          value={selectedYear}
-          onChange={setSelectedYear}
-        />
-        <div style={{
-          color: '#000',
-          fontWeight: 'bold',
-          textAlign: 'center',
-          transform: 'translateY(20px)',  
-        }}>
-        Year: {selectedYear}
-        </div>
+  className="custom-slider"
+  thumbClassName="custom-thumb"
+  trackClassName="custom-track"
+  min={minMaxYear[0]}
+  max={minMaxYear[1]}
+  value={selectedYearRange}
+  onChange={setSelectedYearRange}
+  pearling
+  minDistance={0}
+/>
+<div style={{
+  color: '#000',
+  fontWeight: 'bold',
+  textAlign: 'center',
+  transform: 'translateY(20px)',
+}}>
+  Range: {selectedYearRange[0]} – {selectedYearRange[1]}
+</div>
       </div>
     </div>
   );
