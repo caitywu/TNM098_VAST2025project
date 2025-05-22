@@ -292,25 +292,25 @@ export default function Graph({
   }, [linkData, graph.nodes, selectedNodeId, onNodeClick]);
 
   // ─── 7) Recenter vid ny selectedNode ─────────────────
-  useEffect(() => {
-    if (!selectedNodeId) return;
-    const node = graph.nodes.find((n) => n.id === selectedNodeId);
-    if (!node) return;
+  // useEffect(() => {
+  //   if (!selectedNodeId) return;
+  //   const node = graph.nodes.find((n) => n.id === selectedNodeId);
+  //   if (!node) return;
 
-    // hämta aktuell skala
-    const cur = d3.zoomTransform(svgRef.current);
-    // räkna ut pan så nod hamnar i mitten utan att skala om
-    const panX = width / 2 - node.x;
-    const panY = height / 2 - node.y;
+  //   // hämta aktuell skala
+  //   //const cur = d3.zoomTransform(svgRef.current);
+  //   // räkna ut pan så nod hamnar i mitten utan att skala om
+  //   const panX = width / 2 - node.x;
+  //   const panY = height / 2 - node.y;
 
-    d3.select(svgRef.current)
-      .transition()
-      .duration(750)
-      .call(
-        zoomRef.current.transform,
-        d3.zoomIdentity.translate(panX, panY).scale(cur.k)
-      );
-  }, [selectedNodeId]);
+  //   d3.select(svgRef.current)
+  //     .transition()
+  //     .duration(750)
+  //     .call(
+  //       zoomRef.current.transform,
+  //       d3.zoomIdentity.translate(panX, panY).scale(cur.k)
+  //     );
+  // }, [selectedNodeId]);
 
   return (
     <svg

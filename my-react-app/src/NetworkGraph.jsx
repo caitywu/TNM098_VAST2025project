@@ -6,6 +6,7 @@ import CombinedInfo from "./CombinedInfo";
 import EdgeFilter from "./EdgeFilter";
 import TemporalInfluenceChart from "./TemporalInfluencerChart";
 import InfluenceGraph from "./InfluenceGraph";
+import TemporalPlot from "./TemporalPlot";
 
 const allEdgeTypes = [
   "PerformerOf",
@@ -251,11 +252,12 @@ export default function NetworkGraph() {
             padding: "0.5rem",
           }}
         >
-          <InfluenceGraph
+          {/* <InfluenceGraph
             fullGraph={graph}
             selectedId={debouncedArtist}
             onNodeClick={handleNodeClick}
-          />
+          /> */}
+          <TemporalPlot />
         </div>
 
         <div style={{ flex: 1, overflow: "auto", padding: "0.5rem" }}>
