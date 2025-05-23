@@ -30,6 +30,7 @@ const getEdgeType = (link) => link.edgeType || link["Edge Type"];
 const getNodeType = (node) => node.nodeType || node["Node Type"];
 
 
+
 /**
  * A force graph showing what notable artists have taken influence from Oceanus Folk songs/albums. <br />
  * Can filter by year, influlence type and number of notables an artist/group has over all time. 
@@ -67,15 +68,24 @@ export default function NotableArtistNetworkGraph({
     );
   }, [nodes, minYear, maxYear]);
 
-  // Filter influence links by selected types and source oceanus folk songs
+  // Filter links based on selected influence types and oceanus folk songs
   const influenceLinks = useMemo(() => {
-    return links.filter(link =>
-      selectedInfluenceTypes.has(getEdgeType(link)) &&
-      oceanusFolkSongs.has(link.source)
-    );
-  }, [links, selectedInfluenceTypes, oceanusFolkSongs]);
+  return links.filter(link => {
+    const edgeType = getEdgeType(link);
+    const sourceNode = nodeById.get(link.source);
+    const targetNode = nodeById.get(link.target);
+    if (!sourceNode || !targetNode) return false;
 
-  const influenceTargets = useMemo(() => new Set(influenceLinks.map(link => link.target)), [influenceLinks]);
+    return (
+      selectedInfluenceTypes.has(edgeType) &&
+      oceanusFolkSongs.has(link.target) // Oceanus Folk as influence source (i.e., target of edge)
+    );
+  });
+  }, [links, selectedInfluenceTypes, oceanusFolkSongs, nodeById]);
+  
+  const influenceTargets = useMemo(() => {
+  return new Set(influenceLinks.map(link => link.source)); // who was influenced
+}, [influenceLinks]);
 
   // Map from song/album ID to Set of performer IDs
   const songPerformers = useMemo(() => {
@@ -223,9 +233,9 @@ export default function NotableArtistNetworkGraph({
   // Set the force graph simulation parameters, -1 makes it tight but messy
   useEffect(() => {
     if (!fgRef.current) return;
-    fgRef.current.d3Force('charge').strength(-1);
-    fgRef.current.d3Force('link').distance(50);
-    fgRef.current.d3Force('collision', forceCollide(15));
+    fgRef.current.d3Force('charge').strength(-5);
+    fgRef.current.d3Force('link').distance(80);
+    fgRef.current.d3Force('collision', forceCollide(10));
     fgRef.current.d3Force('charge').simulation?.alpha(1).restart();
   }, [graphNodes, influenceAndPerformerLinks]);
 
@@ -292,7 +302,7 @@ export default function NotableArtistNetworkGraph({
           linkWidth={link => {
             const isInfluence = link.edgeType !== "PerformerOf";
             const isSelected = selectedInfluenceTypes.has(link.edgeType);
-            return isInfluence ? (isSelected ? 4 : 1.5) : 1;
+            return isInfluence ? (isSelected ? 4 : 1.5) : 1.7;
           }}
 
           // Color links based on influence type
@@ -335,15 +345,25 @@ export default function NotableArtistNetworkGraph({
         />
       </div>
       {/* Checkbox to show/hide oceanus folk nodes */}
-      <div style={{ marginLeft: -120, marginTop: 2 }}>
-        <label style={{ fontSize: 8 }}>
-          <input
-            type="checkbox"
-            checked={showOceanusFolk}
-            onChange={() => setOceanusFolkNodes(!showOceanusFolk)}
-          /> Show Oceanus Folk
-        </label>
-      </div>
+      <div style={{
+        marginLeft: -150,
+        marginTop: 50,
+        backgroundColor: 'white',
+        padding: '5px',
+        borderRadius: '4px',
+        zIndex: 9999,
+        position: 'relative'
+      }}>
+      <label style={{ fontSize: 10, cursor: 'pointer' }}>
+        <input
+          type="checkbox"
+          checked={showOceanusFolk}
+          onChange={() => setOceanusFolkNodes(!showOceanusFolk)}
+          style={{ cursor: 'pointer' }}
+        />
+        {' '}Show Oceanus Folk
+      </label>
     </div>
+  </div>
   );
 }

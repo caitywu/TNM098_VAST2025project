@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import * as d3 from 'd3';
 import { getSailorShiftGenres } from './GenreMetrics';
 
@@ -16,7 +16,6 @@ function computeGenreInfluenceMatrix(nodes, links, yearRange, mode = 'outgoing')
   const genreSet = new Set(nodes.map(n => n.genre).filter(Boolean));
   const genres = Array.from(genreSet);
 
-  // Initialize matrix: source -> target genre counts
   const matrix = {};
   genres.forEach(src => {
     matrix[src] = {};
@@ -25,33 +24,31 @@ function computeGenreInfluenceMatrix(nodes, links, yearRange, mode = 'outgoing')
     });
   });
 
-  // Get the nodes by id at both ends of influence edges
   links.forEach(link => {
     const source = nodeById.get(link.source);
     const target = nodeById.get(link.target);
     if (!source || !target) return;
 
-    // Get year of the source node
-    const year = parseInt(source.release_date);
+    const year = parseInt(target.release_date);
     if (isNaN(year) || year < minYear || year > maxYear) return;
 
-    // Get genres of source and target nodes
     const sourceGenre = source.genre;
     const targetGenre = target.genre;
 
     if (!sourceGenre || !targetGenre) return;
 
-    // Only count in the specified direction
+    const influencerGenre = targetGenre;
+    const influencedGenre = sourceGenre;
+
     if (mode === 'outgoing') {
-      matrix[sourceGenre][targetGenre] += 1;
+      matrix[influencerGenre][influencedGenre] += 1;
     } else if (mode === 'incoming') {
-      matrix[targetGenre][sourceGenre] += 1;
+      matrix[influencedGenre][influencerGenre] += 1;
     }
   });
 
   return { matrix, genres };
 }
-
 
 
 
@@ -65,10 +62,11 @@ export default function GenreInfluenceMatrix({ nodes, links, yearRange, mode }) 
   // Compute the genre influence matrix
   const { matrix, genres } = computeGenreInfluenceMatrix(nodes, links, yearRange, mode);
 
-  // Alphabetize genres
-  genres.sort((a, b) => a.localeCompare(b));
+  // State for genre selection + highlighting
+  const [selectedGenre, setSelectedGenre] = useState(null);
 
-  // Get Sailor Shift's genres
+  // Sort genres and extract Sailor Shift genres
+  genres.sort((a, b) => a.localeCompare(b));
   const sailorShiftGenres = new Set(getSailorShiftGenres(nodes, links));
 
   // Get values for normalization
@@ -105,18 +103,18 @@ export default function GenreInfluenceMatrix({ nodes, links, yearRange, mode }) 
   return (
     <div style={{ overflow: 'visible', width: '100%', height: 'auto' }}>
       <div style={{ display: 'flex', marginLeft: 30 }}>
-
         {/* Top-left empty cell */}
         <div style={{ width: labelSize, height: labelSize }} />
 
         {/* Column labels */}
         <div style={{ display: 'flex' }}>
-          {/* Print genre lablels verivally and mark Sailor Shift genres */}
+          {/* Print genre lablels verically and mark Sailor Shift genres */}
           {genres.map((genre, colIdx) => {
             const isSailorGenre = sailorShiftGenres.has(genre);
             return (
               <div
                 key={colIdx}
+                onClick={() => setSelectedGenre(prev => (prev === genre ? null : genre))}
                 style={{
                   width: cellSize,
                   height: labelSize,
@@ -128,6 +126,9 @@ export default function GenreInfluenceMatrix({ nodes, links, yearRange, mode }) 
                   marginBottom: 15,
                   fontWeight: isSailorGenre ? 'bold' : 'normal',
                   fontStyle: isSailorGenre ? 'italic' : 'normal',
+                  cursor: 'pointer',
+                  opacity: selectedGenre && selectedGenre !== genre ? 0.2 : 1,
+                  transition: 'opacity 0.2s',
                 }}
                 title={genre}
               >
@@ -139,7 +140,7 @@ export default function GenreInfluenceMatrix({ nodes, links, yearRange, mode }) 
       </div>
 
       <div style={{ display: 'flex' }}>
-         {/* Print genre lablels horizontally and mark Sailor Shift genres */}
+        {/* Print genre lablels horizontally and mark Sailor Shift genres */}
         <div style={{ display: 'flex', flexDirection: 'column', marginRight: 20 }}>
           {genres.map((rowGenre, rowIdx) => (
             <div key={rowIdx} style={{ display: 'flex' }}>
@@ -156,8 +157,12 @@ export default function GenreInfluenceMatrix({ nodes, links, yearRange, mode }) 
                   marginRight: 30,
                   fontWeight: sailorShiftGenres.has(rowGenre) ? 'bold' : 'normal',
                   fontStyle: sailorShiftGenres.has(rowGenre) ? 'italic' : 'normal',
+                  cursor: 'pointer',
+                  opacity: selectedGenre && selectedGenre !== rowGenre ? 0.2 : 1,
+                  transition: 'opacity 0.2s',
                 }}
                 title={rowGenre}
+                onClick={() => setSelectedGenre(prev => (prev === rowGenre ? null : rowGenre))}
               >
                 {rowGenre}
               </div>
@@ -166,6 +171,11 @@ export default function GenreInfluenceMatrix({ nodes, links, yearRange, mode }) 
               <div style={{ display: 'flex' }}>
                 {genres.map((colGenre, colIdx) => {
                   const value = matrix[rowGenre][colGenre];
+                  const faded =
+                    selectedGenre &&
+                    selectedGenre !== rowGenre &&
+                    selectedGenre !== colGenre;
+
                   return (
                     <div
                       key={colIdx}
@@ -175,8 +185,10 @@ export default function GenreInfluenceMatrix({ nodes, links, yearRange, mode }) 
                         backgroundColor: getColor(value),
                         border: '1px solid #ddd',
                         cursor: value > 0 ? 'pointer' : 'default',
+                        opacity: faded ? 0.1 : 1,
+                        transition: 'opacity 0.2s',
                       }}
-                      // Tooltip for cells 
+                      // Tooltip
                       title={`${value} from ${rowGenre} to ${colGenre}`}
                     />
                   );

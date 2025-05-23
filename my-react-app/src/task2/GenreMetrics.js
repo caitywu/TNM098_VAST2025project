@@ -270,10 +270,62 @@ export function getSailorShiftGenres(nodes, links) {
 
 
 
+/**
+ * Computes the top 5 most influenced performers of Oceanus Folk.
+ *
+ * @param {Array} nodes - Nodes from the dataset.
+ * @param {Array} links - Edges from the dataset.
+ * @param {Set<string>} selectedInfluenceTypes - Set of valid influence type edges
+ *
+ * @returns {Array<[string, number]>} An array of tuples containing the top 5 influenced performer names and their respective counts.
+ */
+export function computeMostInfluencedFromOceanusFolk(nodes, links, selectedInfluenceTypes) {
+  const getEdgeType = (link) => link.edgeType || link["Edge Type"];
+  const getNodeType = (node) => node.nodeType || node["Node Type"];
+  const nodeById = new Map(nodes.map(n => [n.id, n]));
 
+  const oceanusFolkSongs = new Set(
+    nodes.filter(n =>
+      (n.genre === "Oceanus Folk") &&
+      (getNodeType(n) === "Song" || getNodeType(n) === "Album")
+    ).map(n => n.id)
+  );
 
+  // Map each song to its set of performers
+  const songToPerformers = new Map();
+  links.forEach(link => {
+    if (getEdgeType(link) === "PerformerOf") {
+      const performerId = link.source;
+      const songId = link.target;
+      if (!songToPerformers.has(songId)) {
+        songToPerformers.set(songId, new Set());
+      }
+      songToPerformers.get(songId).add(performerId);
+    }
+  });
 
+  const influenceCounts = new Map();
 
+  // Count the number of influences for each performer
+  links.forEach(link => {
+    const edgeType = getEdgeType(link);
+    if (!selectedInfluenceTypes.has(edgeType)) return;
 
+    if (!oceanusFolkSongs.has(link.target)) return;
 
+    const performers = songToPerformers.get(link.source);
+    if (!performers) return;
 
+    performers.forEach(performerId => {
+      influenceCounts.set(performerId, (influenceCounts.get(performerId) || 0) + 1);
+    });
+  });
+
+  // Sort and return the top 5 performers
+  const result = [...influenceCounts.entries()]
+    .map(([id, count]) => [nodeById.get(id)?.name || id, count])
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5);
+
+  return result;
+}

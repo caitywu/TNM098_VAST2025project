@@ -64,3 +64,15 @@
   justify-content: center;
   box-shadow: 0 0 4px rgba(255, 255, 255, 0.6);
 }
+
+/* Arrows for time sliders on sailor shift years */
+.slider-marker {
+  position: absolute;
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 10px solid #333;
+}
+
+

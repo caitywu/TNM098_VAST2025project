@@ -1,35 +1,39 @@
 import React, { useRef, useEffect } from 'react';
 import * as d3 from 'd3';
 
-// Function to compute the influence type counts 
+// Function to compute the influence type counts
 export function computeOceanusFolkInfluenceTypeCounts(nodes, links, selectedInfluenceTypes, yearRange) {
-  // Set year range from data, get nodes from ids and initialize result counts
   const [minYear, maxYear] = yearRange;
   const nodeById = new Map(nodes.map(n => [n.id, n]));
   const result = {};
 
-  // Normalize edge type names 
   links.forEach(link => {
     const edgeType = link.edgeType || link["Edge Type"];
     if (!selectedInfluenceTypes.has(edgeType)) return;
 
-    // Only count influence from Oceanus Folk songs/albums
     const source = nodeById.get(link.source);
-    if (!source || source.genre !== "Oceanus Folk") return;
+    const target = nodeById.get(link.target);
+    if (!source || !target || target.genre !== "Oceanus Folk") return;
 
-    // Get the year of the source node
-    const year = parseInt(source.release_date);
+    const year = parseInt(target.release_date);
     if (isNaN(year) || year < minYear || year > maxYear) return;
 
     if (!result[year]) result[year] = {};
     if (!result[year][edgeType]) result[year][edgeType] = 0;
 
-    // Initialize the count for the edge type if it doesn't exist, otherwise increment it
     result[year][edgeType] += 1;
   });
 
   return result;
 }
+
+const shortLabels = {
+  "InStyleOf": "In Style Of",
+  "CoverOf": "Cover Of",
+  "DirectlySamples": "Directly Samples",
+  "LyricalReferenceTo": "Lyrical Reference To",
+  "InterpolatesFrom": "Interpolates From"
+};
 
 // Colors for the influence types
 const selectedColors = [
@@ -54,18 +58,9 @@ const influenceTypeColors = {
   "CoverOf": "#fc8d62",
   "DirectlySamples": "#66c2a5",
   "LyricalReferenceTo": "#984ea3",
-  "InterpolatesFrom": "#e78ac3"  
+  "InterpolatesFrom": "#e78ac3"
 };
 
-/**
- *A stacked histogram that visualizes the counts of outgoing fluences from Oceanus Folk each year.
- *
- * @param {Object} data Nodes and links from dataset.
- * @param {number} width Histogram width of the SVG (default: 800)
- * @param {number} height Histogram height of the SVG (default: 100)
- * 
- * @returns {JSX.Element} JSX element that renders the stacked histogram
- */
 export default function InfluenceTypeStackedHistogram({
   data,
   width = 800,
@@ -78,16 +73,14 @@ export default function InfluenceTypeStackedHistogram({
 
     const svg = d3.select(ref.current);
     svg.selectAll("*").remove();
-    // Compute dimensions of the SVG of the histogram
+
     const margin = { top: 40, right: 10, bottom: 20, left: 50 };
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
 
-    // Get the years and influence types
     const years = Object.keys(data).map(d => +d).sort((a, b) => a - b);
     const types = allInfluenceTypes.filter(t => Object.values(data).some(d => d[t]));
 
-    // Create a stack data structure for each year
     const stackData = years.map(year => {
       const entry = { year };
       types.forEach(type => {
@@ -106,12 +99,11 @@ export default function InfluenceTypeStackedHistogram({
 
     const g = svg.append("g")
       .attr("transform", `translate(${margin.left},${margin.top})`);
-    
+
     const color = d3.scaleOrdinal()
       .domain(allInfluenceTypes)
       .range(allInfluenceTypes.map(type => influenceTypeColors[type]));
 
-    
     // Tooltip
     const tooltip = d3.select("body")
       .append("div")
@@ -140,32 +132,30 @@ export default function InfluenceTypeStackedHistogram({
       .attr("width", d => x(d[1]) - x(d[0]))
       .attr("height", y.bandwidth())
       .on("mousemove", (event, d) => {
-    
-    // Get the counts for the tooltip
-    const yearData = d.data;
-    const total = Object.keys(yearData)
-        .filter(k => types.includes(k))
-        .reduce((sum, key) => sum + yearData[key], 0);
+        const yearData = d.data;
+        const total = Object.keys(yearData)
+          .filter(k => types.includes(k))
+          .reduce((sum, key) => sum + yearData[key], 0);
 
-    const details = types
-        .map(t => `${shortLabels[t] || t}: ${yearData[t] || 0}`)
-        .join("<br>");
+        const details = types
+          .map(t => `${shortLabels[t] || t}: ${yearData[t] || 0}`)
+          .join("<br>");
 
-    tooltip.html(`<strong>Year:</strong> ${yearData.year}<br><strong>Total:</strong> ${total}<br>${details}`)
-        .style("left", event.pageX + 10 + "px")
-        .style("top", event.pageY - 28 + "px")
-        .style("opacity", 0.95);
-        })
-        .on("mouseout", () => {
-            tooltip.style("opacity", 0);
-        });
+        tooltip.html(`<strong>Year:</strong> ${yearData.year}<br><strong>Total:</strong> ${total}<br>${details}`)
+          .style("left", event.pageX + 10 + "px")
+          .style("top", event.pageY - 28 + "px")
+          .style("opacity", 0.95);
+      })
+      .on("mouseout", () => {
+        tooltip.style("opacity", 0);
+      });
 
-    // Y axis (show every year)
+    // Y axis - years
     g.append("g")
       .call(d3.axisLeft(y).tickValues(years))
       .attr("font-size", "8px");
 
-    // X axis (counts)
+    // X axis - counts
     g.append("g")
       .attr("transform", `translate(0,${innerHeight})`)
       .call(d3.axisBottom(x).ticks(3))
@@ -173,7 +163,51 @@ export default function InfluenceTypeStackedHistogram({
 
     // Cleanup tooltip on unmount
     return () => tooltip.remove();
-  }, [data]);
+  }, [data, width, height]);
 
-  return <svg ref={ref} width={width} height={height}></svg>;
+  // Legend styles with white background and padding
+  const legendContainerStyle = {
+    display: "flex",
+    justifyContent: "center",
+    flexWrap: "wrap",
+    padding: "8px 12px",
+    backgroundColor: "white",
+    borderRadius: "6px",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+    userSelect: "none",
+    marginBottom: "10px",  // space below legend before chart
+  };
+
+  const legendItemStyle = {
+    display: "flex",
+    alignItems: "center",
+    marginRight: "5px",
+    fontSize: "10px",
+    cursor: "default",
+  };
+
+  const legendColorBoxStyle = {
+    width: "10px",
+    height: "10px",
+    marginRight: "5px",
+  };
+
+  return (
+    <div>
+      <div style={legendContainerStyle}>
+        {allInfluenceTypes.map(type => (
+          <div key={type} style={legendItemStyle}>
+            <div
+              style={{
+                ...legendColorBoxStyle,
+                backgroundColor: influenceTypeColors[type],
+              }}
+            />
+            <span>{shortLabels[type] || type}</span>
+          </div>
+        ))}
+      </div>
+      <svg ref={ref} width={width} height={height}></svg>
+    </div>
+  );
 }

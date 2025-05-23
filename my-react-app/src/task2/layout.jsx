@@ -24,7 +24,7 @@ export default function Layout() {
         }}
       >
         {/* Header content --> Links to the pages */}
-        <h1 style={{ margin: 0 }}>Musical Network</h1>
+        <h2 style={{ margin: 0 }}>Musical Network</h2>
         <nav style={{ marginTop: '0.5rem' }}>
           <Link to="/" style={{ marginRight: '2rem' }}>Network Graph</Link>
           <Link to="/task2" style={{ marginRight: '2rem' }}>Genre Analysis</Link>
