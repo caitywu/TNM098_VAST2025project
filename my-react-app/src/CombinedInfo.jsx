@@ -47,12 +47,12 @@ export default function CombinedPanel({
       color: '#fff',
       borderRadius: 4,
       display: 'flex',
-      flexDirection: 'column',
-      gap: '1rem'
+      flexDirection: 'column'
     }}>
       {/* Basic Info */}
       <h3 style={{ margin: 0 }}>{title}</h3>
       <p><strong>Type:</strong> {selectedNode["Node Type"]}</p>
+      <p>Released: {selectedNode["release_date"]}</p>
       {selectedNode.stage_name && (
         <p><strong>Stage Name:</strong> {selectedNode.stage_name}</p>
       )}

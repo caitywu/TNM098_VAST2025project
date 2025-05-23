@@ -7,6 +7,7 @@ import EdgeFilter from "./EdgeFilter";
 import TemporalInfluenceChart from "./TemporalInfluencerChart";
 import InfluenceGraph from "./InfluenceGraph";
 import TemporalPlot from "./TemporalPlot";
+import TimeSeriesChart from "./TimeSeriesChart";
 
 const allEdgeTypes = [
   "PerformerOf",
@@ -73,6 +74,8 @@ export default function NetworkGraph() {
         }));
 
         setData({ nodes, links });
+                
+        
         setArtists(enrichedPersons); // <- use enriched data
         if (enrichedPersons.length) setIds([enrichedPersons[0].id]);
       });
@@ -243,7 +246,7 @@ export default function NetworkGraph() {
       </div>
 
       {/* ─── BOTTOM ROW: detail view 1 & 2 ─── */}
-      <div style={{ display: "flex", height: 150 }}>
+      <div style={{ display: "flex", height: 400 }}>
         <div
           style={{
             flex: 1,
