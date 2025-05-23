@@ -5,103 +5,116 @@ import NetworkGraph from "./NetworkGraph";
 function TemporalPlot() {
   const [graph, setGraph] = useState({ nodes: [], links: [] });
   const svgRef = useRef();
-  const [nodesNetwork, setNetwork] = useState([]);
-  const [data, setData] = useState(null);
+  const [nodesNetwork, setNetwork] = useState();
+  //const [data, setData] = useState(null);
 
   // the five “influence” edge‐types
-const INFL = new Set([
-  "InStyleOf",
-  "InterpolatesFrom",
-  "CoverOf",
-  "LyricalReferenceTo",
-  "DirectlySamples",
-]);
+  const INFL = new Set([
+    "InStyleOf",
+    "InterpolatesFrom",
+    "CoverOf",
+    "LyricalReferenceTo",
+    "DirectlySamples",
+  ]);
 
-const CONT = new Set([
-  "PerformerOf",
-  "ComposerOf",
-  "ProducerOf",
-  "LyricistOf"
-]);
-
+  const CONT = new Set([
+    "PerformerOf",
+    "ComposerOf",
+    "ProducerOf",
+    "LyricistOf",
+  ]);
 
   useEffect(() => {
-    fetch('/MC1_graph.json')
-      .then(response => response.json())
-      .then(raw => {
+    fetch("/MC1_graph.json")
+      .then((response) => response.json())
+      .then((raw) => {
         const nodes = raw.nodes.map((n) => ({ ...n, id: String(n.id) })) || [];
         const links = raw.links.map((l) => ({
           ...l,
           source: String(l.source),
           target: String(l.target),
         }));
-        setData({ nodes, links });
+        setGraph({ nodes, links });
         //console.log("data", data);
-
       })
-      .catch(error => console.error("Fel vid laddning:", error));
+      .catch((error) => console.error("Fel vid laddning:", error));
   }, []);
-
 
   // filter to get all the wanted nodes and edges
   useEffect(() => {
-    const sailor = graph.nodes.filter(n => n.id === 17255); // Sailor Shift
+    const sailor = graph.nodes.find((n) => n.id === "17255"); // Sailor Shift
 
-    setNetwork(sailor);
-    //console.log("sailor", sailor);
-
-    const connectedEdges = graph.links.filter(e => INFL.has(e["Edge Type"]) &&
-    (e.source === sailor.id || e.target === sailor.id));
-   
-    //console.log("connectedEdges", connectedEdges);
-
+    const connectedEdges = graph.links.filter(
+      (e) =>
+        INFL.has(e["Edge Type"]) &&
+        (e.source === sailor.id || e.target === sailor.id)
+    );
 
     const connectedNodeIds = new Set(
-    connectedEdges.map(e =>
-    e.source === sailor.id ? e.target : e.source));
-
-    //console.log("connectednodeids", connectedNodeIds);
-
-
+      connectedEdges.map((e) => (e.source === sailor.id ? e.target : e.source))
+    );
+    console.log("connectedNodeIds", connectedNodeIds);
     const res = [];
 
-    connectedNodeIds.forEach(songAlbum => {
+    connectedNodeIds.forEach((songAlbumId) => {
+      const rawNode = graph.nodes.find((n) => n.id === songAlbumId);
+      console.log("Raw node:", rawNode);
 
-      const relatedE = graph.links.filter(e => 
-        (e.source === songAlbum.id || e.target === songAlbum.id) && CONT.has(e["Edge Type"]));
-      
-        relatedE.forEach(edge => {
-          const personId =
-          edge.source === songAlbum.id ? edge.target : edge.source;
+      const songAlbum = graph.nodes.find(
+        (n) =>
+          n.id === songAlbumId &&
+          typeof n["Node Type"] === "string" &&
+          (n["Node Type"].includes("Song") || n["Node Type"].includes("Album"))
+      );
+      console.log("songalbum", songAlbum);
 
-          const personNode = graph.nodes.find(n => 
-            n.id === personId && n["Node Type"] === "Person"
-          );
+      if (!songAlbum || !songAlbum.release_date) return;
 
-          if (personNode && songAlbum.release_Date) {
-            res.push({
-              id:personNode.id,
-              name: personNode.name,
-              release_date: +songAlbum.release_date,
-              edgeType: edge["Edge Type"]
-            });
-          }
-        })
-      })
+      const relatedE = graph.links.filter(
+        (e) =>
+          (e.source === songAlbumId || e.target === songAlbumId) &&
+          CONT.has(e["Edge Type"])
+      );
+      // console.log("relatedE", relatedE);
+      relatedE.forEach((edge) => {
+        const personId =
+          edge.source === songAlbumId ? edge.target : edge.source;
 
-      setNetwork(res);
+        const personNode = graph.nodes.find(
+          (n) => n.id === personId && n["Node Type"] === "Person"
+        );
+
+        if (personNode) {
+          res.push({
+            id: personNode.id,
+            name: personNode.name,
+            release_date: +songAlbum.release_date,
+            edgeType: edge["Edge Type"],
+          });
+        }
+      });
+    });
+
+    //console.log("res", res);
+
+    setNetwork(res);
 
     //console.log("network", nodesNetwork); //TOM åtgärda!
 
     //setNetwork(graph.nodes.filter(n => connectedNodeIds.has(n.id)));
-  }, []);
- 
+  }, [graph]);
 
   useEffect(() => {
-  if (nodesNetwork) {
-    console.log("sialor:", nodesNetwork);
-  }
-}, [nodesNetwork]);
+    if (nodesNetwork) {
+      console.log("nodesNetwork:", nodesNetwork);
+    }
+  }, [nodesNetwork]);
+
+  useEffect(() => {
+    if (graph) {
+      console.log("graph:", graph);
+    }
+  }, [graph]);
 
   // draw the network
   useEffect(() => {
@@ -110,9 +123,9 @@ const CONT = new Set([
     const margin = { top: 10, right: 30, bottom: 30, left: 60 };
     const width = 460 - margin.left - margin.right;
     const height = 400 - margin.top - margin.bottom;
-    const releaseDates = 
-      nodesNetwork.map(n => +n.release_date)  // + konverterar till tal
-      .filter(d => !isNaN(d));    // rensa bort ogiltiga datum
+    const releaseDates = nodesNetwork
+      .map((n) => +n.release_date) // + konverterar till tal
+      .filter((d) => !isNaN(d)); // rensa bort ogiltiga datum
 
     const minDate = d3.min(releaseDates);
     const maxDate = d3.max(releaseDates);
@@ -126,7 +139,8 @@ const CONT = new Set([
       .attr("transform", `translate(${margin.left},${margin.top})`);
 
     const x = d3.scaleLinear().domain([minDate, maxDate]).range([0, width]);
-    svg.append("g")
+    svg
+      .append("g")
       .attr("transform", `translate(0,${height})`)
       .call(d3.axisBottom(x));
 
@@ -143,36 +157,31 @@ const CONT = new Set([
     //   .attr("r", 3)
     //   .style("fill", "#69b3a2");
 
-    svg.append("g")
-  .selectAll("circle")
-  .data(nodesNetwork)
-  .enter()
-  .append("circle")
-  .attr("cx", d => x(d.release_date))
-  .attr("cy", d => y(1)) // ev. räkna frekvens om du vill fördela
-  .attr("r", 3)
-  .style("fill", "#1f77b4");
+    svg
+      .append("g")
+      .selectAll("circle")
+      .data(nodesNetwork)
+      .enter()
+      .append("circle")
+      .attr("cx", (d) => x(d.release_date))
+      .attr("cy", (d) => y(1)) // ev. räkna frekvens om du vill fördela
+      .attr("r", 3)
+      .style("fill", "#1f77b4");
 
-  svg.selectAll("text")
-  .data(nodesNetwork)
-  .enter()
-  .append("text")
-  .attr("x", d => x(d.release_date) + 4)
-  .attr("y", d => y(1))
-  .text(d => d.name)
-  .style("font-size", "10px");
+    svg
+      .selectAll("text")
+      .data(nodesNetwork)
+      .enter()
+      .append("text")
+      .attr("x", (d) => x(d.release_date) + 4)
+      .attr("y", (d) => y(1))
+      .text((d) => d.name)
+      .style("font-size", "10px");
 
-  //console.log("network", nodesNetwork);
-
-
-
-
-
+    //console.log("network", nodesNetwork);
   }, []);
 
-  return (
-    <svg ref={svgRef} width={600} height={400}></svg>
-  );
+  return <svg ref={svgRef} width={600} height={400}></svg>;
 }
 
 export default TemporalPlot;
