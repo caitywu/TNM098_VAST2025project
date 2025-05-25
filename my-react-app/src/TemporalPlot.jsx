@@ -1,187 +1,172 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useMemo } from "react";
 import * as d3 from "d3";
-import NetworkGraph from "./NetworkGraph";
 
 function TemporalPlot() {
   const [graph, setGraph] = useState({ nodes: [], links: [] });
   const svgRef = useRef();
-  const [nodesNetwork, setNetwork] = useState();
-  //const [data, setData] = useState(null);
+  const [events, setEvents] = useState([]);
 
-  // the five “influence” edge‐types
-  const INFL = new Set([
-    "InStyleOf",
-    "InterpolatesFrom",
-    "CoverOf",
-    "LyricalReferenceTo",
-    "DirectlySamples",
-  ]);
+  // Edge description functions
+  const EDGE_DESCRIPTIONS = {
+    PerformerOf: (s, t) => `${s} performed ${t}`,
+    ComposerOf: (s, t) => `${s} composed ${t}`,
+    ProducerOf: (s, t) => `${s} produced ${t}`,
+    LyricistOf: (s, t) => `${s} wrote lyrics for ${t}`,
+    RecordedBy: (s, t) => `${t} was recorded by ${s}`,
+    DistributedBy: (s, t) => `${t} aided in distribution of ${s}`,
+    InStyleOf: (s, t) => `${s} was performed (partly) in the style of ${t}`,
+    InterpolatesFrom: (s, t) => `${s} interpolates a melody from ${t}`,
+    CoverOf: (s, t) => `${s} is a cover of ${t}`,
+    LyricalReferenceTo: (s, t) => `${s} makes a lyrical reference to ${t}`,
+    DirectlySamples: (s, t) => `${s} directly samples ${t}`,
+    MemberOf: (s, t) => `${s} was/is a member of ${t}`,
+  };
 
-  const CONT = new Set([
-    "PerformerOf",
-    "ComposerOf",
-    "ProducerOf",
-    "LyricistOf",
-  ]);
-
+  // Load graph
   useEffect(() => {
     fetch("/MC1_graph.json")
-      .then((response) => response.json())
+      .then((r) => r.json())
       .then((raw) => {
-        const nodes = raw.nodes.map((n) => ({ ...n, id: String(n.id) })) || [];
+        const nodes = raw.nodes.map((n) => ({ ...n, id: String(n.id) }));
         const links = raw.links.map((l) => ({
           ...l,
           source: String(l.source),
           target: String(l.target),
         }));
         setGraph({ nodes, links });
-        //console.log("data", data);
-      })
-      .catch((error) => console.error("Fel vid laddning:", error));
+      });
   }, []);
 
-  // filter to get all the wanted nodes and edges
-  useEffect(() => {
-    const sailor = graph.nodes.find((n) => n.id === "17255"); // Sailor Shift
-
-    const connectedEdges = graph.links.filter(
-      (e) =>
-        INFL.has(e["Edge Type"]) &&
-        (e.source === sailor.id || e.target === sailor.id)
-    );
-
-    const connectedNodeIds = new Set(
-      connectedEdges.map((e) => (e.source === sailor.id ? e.target : e.source))
-    );
-    console.log("connectedNodeIds", connectedNodeIds);
-    const res = [];
-
-    connectedNodeIds.forEach((songAlbumId) => {
-      const rawNode = graph.nodes.find((n) => n.id === songAlbumId);
-      console.log("Raw node:", rawNode);
-
-      const songAlbum = graph.nodes.find(
-        (n) =>
-          n.id === songAlbumId &&
-          typeof n["Node Type"] === "string" &&
-          (n["Node Type"].includes("Song") || n["Node Type"].includes("Album"))
-      );
-      console.log("songalbum", songAlbum);
-
-      if (!songAlbum || !songAlbum.release_date) return;
-
-      const relatedE = graph.links.filter(
-        (e) =>
-          (e.source === songAlbumId || e.target === songAlbumId) &&
-          CONT.has(e["Edge Type"])
-      );
-      // console.log("relatedE", relatedE);
-      relatedE.forEach((edge) => {
-        const personId =
-          edge.source === songAlbumId ? edge.target : edge.source;
-
-        const personNode = graph.nodes.find(
-          (n) => n.id === personId && n["Node Type"] === "Person"
-        );
-
-        if (personNode) {
-          res.push({
-            id: personNode.id,
-            name: personNode.name,
-            release_date: +songAlbum.release_date,
-            edgeType: edge["Edge Type"],
-          });
-        }
-      });
+  // Memoized lookups
+  const nodeById = useMemo(
+    () => new Map(graph.nodes.map((n) => [n.id, n])),
+    [graph.nodes]
+  );
+  const adjList = useMemo(() => {
+    const m = new Map();
+    graph.nodes.forEach((n) => m.set(n.id, []));
+    graph.links.forEach((e) => {
+      m.get(e.source).push({ neighbor: e.target, edgeType: e["Edge Type"] });
+      m.get(e.target).push({ neighbor: e.source, edgeType: e["Edge Type"] });
     });
+    return m;
+  }, [graph.nodes, graph.links]);
 
-    //console.log("res", res);
-
-    setNetwork(res);
-
-    //console.log("network", nodesNetwork); //TOM åtgärda!
-
-    //setNetwork(graph.nodes.filter(n => connectedNodeIds.has(n.id)));
-  }, [graph]);
-
+  // Collect events per influence path
   useEffect(() => {
-    if (nodesNetwork) {
-      console.log("nodesNetwork:", nodesNetwork);
+    if (!graph.nodes.length) return;
+    const sailorNode = graph.nodes.find((n) => n.name === "Sailor Shift");
+    if (!sailorNode) return;
+    const sailorId = sailorNode.id;
+    const visited = new Set();
+    const collected = [];
+    const queue = [{ id: sailorId, path: [sailorNode.name], depth: 0 }];
+    const maxDepth = 3;
+
+    while (queue.length) {
+      const { id: currId, path, depth } = queue.shift();
+      if (visited.has(currId)) continue;
+      visited.add(currId);
+      const currName = nodeById.get(currId).name;
+
+      for (const { neighbor, edgeType } of adjList.get(currId)) {
+        if (depth >= maxDepth) continue;
+        const neighNode = nodeById.get(neighbor);
+        if (!neighNode) continue;
+
+        // build description for this edge
+        const desc = EDGE_DESCRIPTIONS[edgeType]
+          ? EDGE_DESCRIPTIONS[edgeType](currName, neighNode.name)
+          : `${currName} ${edgeType} ${neighNode.name}`;
+        const newPath = [...path, desc];
+
+        // if it's a song/album with release date, record event for each contributor
+        if (
+          (neighNode["Node Type"].includes("Song") || neighNode["Node Type"].includes("Album")) &&
+          neighNode.release_date
+        ) {
+          const releaseDesc = `${neighNode.name} was released in ${neighNode.release_date}`;
+          const fullPath = [...newPath, releaseDesc];
+          adjList.get(neighbor).forEach((e) => {
+            const contributor = nodeById.get(e.neighbor);
+            if (contributor["Node Type"] === "Person") {
+              collected.push({
+                personId: contributor.id,
+                personName: contributor.name,
+                release_date: +neighNode.release_date,
+                fullPath,
+              });
+            }
+          });
+          queue.push({ id: neighbor, path: fullPath, depth: depth + 1 });
+        } else {
+          queue.push({ id: neighbor, path: newPath, depth: depth + 1 });
+        }
+      }
     }
-  }, [nodesNetwork]);
+    setEvents(collected);
+  }, [nodeById, adjList, graph.nodes]);
 
+  // Prepare top 10 persons and their events (exclude Sailor Shift)
+  const counts = d3.rollup(
+    events,
+    (v) => v.length,
+    (d) => d.personId
+  );
+  const topPersons = Array.from(counts)
+    .filter(([id]) => id !== graph.nodes.find((n) => n.name === "Sailor Shift")?.id)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([id]) => id);
+  const topEvents = events.filter((e) => topPersons.includes(e.personId));
+  const persons = topPersons.map((id) => nodeById.get(id).name);
+
+  // Scatterplot: x=year, y=person, color per person
   useEffect(() => {
-    if (graph) {
-      console.log("graph:", graph);
-    }
-  }, [graph]);
-
-  // draw the network
-  useEffect(() => {
-    if (!nodesNetwork || nodesNetwork.length === 0) return;
-
-    const margin = { top: 10, right: 30, bottom: 30, left: 60 };
-    const width = 460 - margin.left - margin.right;
+    if (!topEvents.length) return;
+    const margin = { top: 40, right: 30, bottom: 40, left: 100 };
+    const width = 600 - margin.left - margin.right;
     const height = 400 - margin.top - margin.bottom;
-    const releaseDates = nodesNetwork
-      .map((n) => +n.release_date) // + konverterar till tal
-      .filter((d) => !isNaN(d)); // rensa bort ogiltiga datum
 
-    const minDate = d3.min(releaseDates);
-    const maxDate = d3.max(releaseDates);
+    const svg = d3.select(svgRef.current);
+    svg.selectAll("*").remove();
+    const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
 
-    //clean
-    d3.select(svgRef.current).selectAll("*").remove();
+    const x = d3.scaleLinear()
+      .domain(d3.extent(topEvents, (d) => d.release_date))
+      .nice()
+      .range([0, width]);
+    const y = d3.scalePoint()
+      .domain(persons)
+      .range([height, 0])
+      .padding(1);
+    const color = d3.scaleOrdinal(d3.schemeCategory10).domain(persons);
 
-    const svg = d3
-      .select(svgRef.current)
-      .append("g")
-      .attr("transform", `translate(${margin.left},${margin.top})`);
+    // axes
+    g.append("g").attr("transform", `translate(0,${height})`).call(
+      d3.axisBottom(x).tickFormat(d3.format("d"))
+    );
+    g.append("g").call(d3.axisLeft(y));
 
-    const x = d3.scaleLinear().domain([minDate, maxDate]).range([0, width]);
-    svg
-      .append("g")
-      .attr("transform", `translate(0,${height})`)
-      .call(d3.axisBottom(x));
-
-    const y = d3.scaleLinear().domain([0, 10]).range([height, 0]);
-    svg.append("g").call(d3.axisLeft(y));
-
-    // svg.append("g")
-    //   .selectAll("circle")
-    //   .data(nodesNetwork.filter(d => d["Node Type"] === "Person" && d.release_date))
-    //   .enter()
-    //   .append("circle")
-    //   .attr("cx", d => x(+d.release_date))
-    //   .attr("cy", d => y(3))
-    //   .attr("r", 3)
-    //   .style("fill", "#69b3a2");
-
-    svg
-      .append("g")
-      .selectAll("circle")
-      .data(nodesNetwork)
+    // points
+    g.selectAll("circle")
+      .data(topEvents)
       .enter()
       .append("circle")
       .attr("cx", (d) => x(d.release_date))
-      .attr("cy", (d) => y(1)) // ev. räkna frekvens om du vill fördela
-      .attr("r", 3)
-      .style("fill", "#1f77b4");
+      .attr("cy", (d) => y(d.personName))
+      .attr("r", 5)
+      .style("fill", (d) => color(d.personName))
+      .append("title")
+      .text((d) => d.fullPath.join(" → "));
+  }, [topEvents, persons]);
 
-    svg
-      .selectAll("text")
-      .data(nodesNetwork)
-      .enter()
-      .append("text")
-      .attr("x", (d) => x(d.release_date) + 4)
-      .attr("y", (d) => y(1))
-      .text((d) => d.name)
-      .style("font-size", "10px");
-
-    //console.log("network", nodesNetwork);
-  }, []);
-
-  return <svg ref={svgRef} width={600} height={400}></svg>;
+  return (
+    <div>
+      <h2>Top 10 Influencers Events</h2>
+      <svg ref={svgRef} width={600} height={400}></svg>
+    </div>
+  );
 }
 
 export default TemporalPlot;
