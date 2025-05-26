@@ -15,6 +15,7 @@ function FetchData() {
       <h2>Persons</h2>
       {nodes.
       filter(node => node["Node Type"] === "Person")
+      .slice(0, 100) // Visa bara de första 10
       .map((node, i) => (
         <div key={node.id}>
           <p><strong>{node["Node Type"]}</strong> - {node.name}</p>
@@ -23,5 +24,6 @@ function FetchData() {
     </div>
   )
 }
+
 
 export default FetchData

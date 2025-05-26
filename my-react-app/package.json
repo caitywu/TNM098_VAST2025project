@@ -10,8 +10,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "d3": "^7.9.0",
+    "rc-slider": "^11.1.8",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "react-force-graph-2d": "^1.27.1",
+    "react-router-dom": "^7.6.0",
+    "react-slider": "^2.0.6"
   },
   "devDependencies": {
     "@eslint/js": "^9.22.0",
