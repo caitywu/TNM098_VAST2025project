@@ -2,7 +2,7 @@ import React, { useMemo, useState, useRef, useEffect } from 'react';
 import * as d3 from 'd3';
 import { forceCollide } from 'd3-force';
 import ForceGraph2D from 'react-force-graph-2d';
-import ArtistSelector from '../ArtistSelector';
+import ArtistSelector from '../SimpleArtistSelector';
 
 // Function to color encode based on genre
 function genreColor(genre) {
