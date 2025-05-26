@@ -233,7 +233,7 @@ export default function NotableArtistNetworkGraph({
       <div style={{ maxWidth: 150, maxHeight: 200, overflowY: 'auto' }}>
         {/* List of artists/groups for selection */}
         <ArtistSelector
-          options={graphNodes.filter(n => n.group === 'Artist' || n.group === 'Group').sort((a, b) => a.name.localeCompare(b.name))}
+          options={graphNodes.filter(n => n.group === 'Artist' || n.group === 'MusicalGroup').sort((a, b) => a.name.localeCompare(b.name))}
           selectedIds={selectedArtistIds}
           onChange={(ids) => {
             setSelectedArtistIds(ids);
