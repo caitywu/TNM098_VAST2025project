@@ -319,7 +319,7 @@ export default function Task2Main() {
         </div>
 
          {/* Bottom right: Genre Info */}
-      <div style={{ gridColumn: '3', gridRow: '2', padding: '1px', backgroundColor: '#f9f9f9', borderRadius: '5px' }}>
+      {/* <div style={{ gridColumn: '3', gridRow: '2', padding: '1px', backgroundColor: '#f9f9f9', borderRadius: '5px' }}>
         <h4 style={{ fontSize: '11px', fontWeight: 'bold' }}>Most Influenced By Oceanus Folk Of All Time</h4>
           <ul style={{ listStyleType: 'none', paddingLeft: 0, fontSize: '11px' }}>
             {topInfluencedArtists.map(([name, count], idx) => (
@@ -328,7 +328,7 @@ export default function Task2Main() {
             </li>
           ))}
           </ul>
-      </div>
+      </div> */}
 
         {/* Bottom: Bottom Time Slider */}
         <div style={{
