@@ -209,7 +209,7 @@ export default function NotableArtistNetworkGraph({
   // Style legend
   const legendStyle = {
     display: 'flex',
-    gap: '1px',
+    gap: '5px',
     fontSize: 10,
     marginBottom: '10px',
     flexWrap: 'wrap',
@@ -252,10 +252,10 @@ export default function NotableArtistNetworkGraph({
       {/* Render legend */}
       <div>
         <div style={legendStyle}>
-          <div><span style={{ ...box("#666"), borderRadius: '50%' }} /> Artist (circle)</div>
-          <div><span style={{ ...box("#666"), clipPath: 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)' }} /> Group (star)</div>
-          <div><span style={{ ...box("#666"), clipPath: 'inset(0)' }} /> Album (square)</div>
-          <div><span style={{ ...box("#666"), clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)' }} /> Song (triangle)</div>
+          <div><span style={{ ...box("#666"), borderRadius: '50%' }} /> Artist</div>
+          <div><span style={{ ...box("#666"), clipPath: 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)' }} /> Group</div>
+          <div><span style={{ ...box("#666"), clipPath: 'inset(0)' }} /> Album</div>
+          <div><span style={{ ...box("#666"), clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)' }} /> Song</div>
           {Object.entries(influenceTypeColors).map(([type, color]) => (
             <div key={type}><span style={{ ...box(color) }} /> {type}</div>
           ))}
@@ -353,7 +353,7 @@ export default function NotableArtistNetworkGraph({
       {/* Checkbox to show/hide oceanus folk nodes */}
       <div style={{
         marginLeft: -145,
-        marginTop: 50,
+        marginTop: 35,
         backgroundColor: 'white',
         padding: '5px',
         borderRadius: '4px',
