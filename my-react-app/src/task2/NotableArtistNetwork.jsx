@@ -16,7 +16,7 @@ function genreColor(genre) {
   return "#000";
 }
 
-// Colors ofr influence types
+// Influence type colors
 const influenceTypeColors = {
   InStyleOf: "#ff33cc",
   CoverOf: "#fc8d62",
@@ -25,11 +25,8 @@ const influenceTypeColors = {
   InterpolatesFrom: "#e78ac3"
 };
 
-// Node and edge type getters with normalization
 const getEdgeType = (link) => link.edgeType || link["Edge Type"];
 const getNodeType = (node) => node.nodeType || node["Node Type"];
-
-
 
 /**
  * A force graph showing what notable artists have taken influence from Oceanus Folk songs/albums. <br />
@@ -45,14 +42,14 @@ const getNodeType = (node) => node.nodeType || node["Node Type"];
 export default function NotableArtistNetworkGraph({
   nodes, links, yearRange, selectedInfluenceTypes, minNotables = 0
 }) {
-  // States for node focus + artist selection + oceanus folk visibility + time filtering
+   // States for node focus + artist selection + oceanus folk visibility + time filtering
   const [focusedNodeId, setFocusedNodeId] = useState(null);
   const [selectedArtistIds, setSelectedArtistIds] = useState([]);
   const [showOceanusFolk, setOceanusFolkNodes] = useState(true);
   const fgRef = useRef();
   const [minYear, maxYear] = yearRange;
 
-  // Filter nodes by selected artist IDs
+   // Filter nodes by selected artist ids
   const nodeById = useMemo(() => new Map(nodes.map(n => [n.id, n])), [nodes]);
 
   // Extract oceanus folk songs/albums in year range
@@ -67,27 +64,25 @@ export default function NotableArtistNetworkGraph({
       ).map(n => n.id)
     );
   }, [nodes, minYear, maxYear]);
-
+  
   // Filter links based on selected influence types and oceanus folk songs
   const influenceLinks = useMemo(() => {
-  return links.filter(link => {
-    const edgeType = getEdgeType(link);
-    const sourceNode = nodeById.get(link.source);
-    const targetNode = nodeById.get(link.target);
-    if (!sourceNode || !targetNode) return false;
-
-    return (
-      selectedInfluenceTypes.has(edgeType) &&
-      oceanusFolkSongs.has(link.target) // Oceanus Folk as influence source (i.e., target of edge)
-    );
-  });
+    return links.filter(link => {
+      const edgeType = getEdgeType(link);
+      const sourceNode = nodeById.get(link.source);
+      const targetNode = nodeById.get(link.target);
+      if (!sourceNode || !targetNode) return false;
+      return (
+        selectedInfluenceTypes.has(edgeType) &&
+        oceanusFolkSongs.has(link.target) // Oceanus Folk as influence source (i.e., target of edge)
+      );
+    });
   }, [links, selectedInfluenceTypes, oceanusFolkSongs, nodeById]);
-  
-  const influenceTargets = useMemo(() => {
-  return new Set(influenceLinks.map(link => link.source)); // who was influenced
-}, [influenceLinks]);
 
-  // Map from song/album ID to Set of performer IDs
+  const influenceTargets = useMemo(() =>
+    new Set(influenceLinks.map(link => link.source)), [influenceLinks]); // who was influenced
+
+  // Map from song/album ID to Set of performer idss
   const songPerformers = useMemo(() => {
     const map = new Map();
     links.forEach(link => {
@@ -114,39 +109,17 @@ export default function NotableArtistNetworkGraph({
     return counts;
   }, [links, nodeById]);
 
-  // Filter out songs and performers based on # of notables
-  const filteredSongs = useMemo(() => {
-    const baseSongs = new Set([...oceanusFolkSongs, ...influenceTargets]);
-    const validSongs = new Set();
-
-    return validSongs;
-  }, [oceanusFolkSongs, influenceTargets, songPerformers]);
-
-  // Performer links filtered with minNotables and oceanus folk filtering
-  const performerLinks = useMemo(() => {
-    return links.filter(link => {
-      if (getEdgeType(link) !== "PerformerOf") return false;
-      const songNode = nodeById.get(link.target);
-      if (!songNode) return false;
-
-      return true; 
-    });
-  }, [links, nodeById, showOceanusFolk, performerNotableCounts, minNotables]);
-
   // Compute performerLinks without filtering 
   const preliminaryPerformerLinks = useMemo(() => {
     return links.filter(link => {
       if (getEdgeType(link) !== "PerformerOf") return false;
       const songNode = nodeById.get(link.target);
       if (!songNode) return false;
-
       if (!showOceanusFolk && songNode.genre === "Oceanus Folk") return false;
-
       if (songNode.genre !== "Oceanus Folk") {
         const performerNotables = performerNotableCounts.get(link.source) || 0;
         if (performerNotables < minNotables) return false;
       }
-
       return true;
     });
   }, [links, nodeById, showOceanusFolk, performerNotableCounts, minNotables]);
@@ -154,39 +127,37 @@ export default function NotableArtistNetworkGraph({
   // Get performerIds from preliminaryPerformerLinks
   const preliminaryPerformerIds = useMemo(() => new Set(preliminaryPerformerLinks.map(link => link.source)), [preliminaryPerformerLinks]);
 
-  // Define filtered songs/albums from notables
+  // Filter out songs and performers based on # of notables
   const filteredSongsFinal = useMemo(() => {
     const baseSongs = new Set([...oceanusFolkSongs, ...influenceTargets]);
     const validSongs = new Set();
-
     baseSongs.forEach(songId => {
       const performers = songPerformers.get(songId);
       if (!performers) {
-        // Keep only if Oceanus Folk or influence target
         validSongs.add(songId);
       } else {
-        // Keep song/album if at least one performer is visible after filtering
         const hasVisiblePerformer = [...performers].some(p => preliminaryPerformerIds.has(p));
         if (hasVisiblePerformer) validSongs.add(songId);
       }
     });
-
     return validSongs;
   }, [oceanusFolkSongs, influenceTargets, songPerformers, preliminaryPerformerIds]);
 
-  // Filter performerLinks on songs/alnums in filteredSongsFinal
-  const filteredPerformerLinks = useMemo(() => {
-    return preliminaryPerformerLinks.filter(link => filteredSongsFinal.has(link.target));
-  }, [preliminaryPerformerLinks, filteredSongsFinal]);
+  // Performer links filtered with minNotables and oceanus folk filtering
+  const filteredPerformerLinks = useMemo(() =>
+    preliminaryPerformerLinks.filter(link => filteredSongsFinal.has(link.target)),
+    [preliminaryPerformerLinks, filteredSongsFinal]
+  );
 
-  // Get final performerIds from filteredPerformerLinks
-  const performerIds = useMemo(() => new Set(filteredPerformerLinks.map(link => link.source)), [filteredPerformerLinks]);
+  const performerIds = useMemo(() =>
+    new Set(filteredPerformerLinks.map(link => link.source)),
+    [filteredPerformerLinks]
+  );
 
-
-  const visibleNodeIds = useMemo(() => new Set([
-    ...filteredSongsFinal,
-    ...performerIds
-  ]), [filteredSongsFinal, performerIds]);
+  const visibleNodeIds = useMemo(() =>
+    new Set([...filteredSongsFinal, ...performerIds]),
+    [filteredSongsFinal, performerIds]
+  );
 
   // Get those nodes that should be rendered
   const graphNodes = useMemo(() => {
@@ -201,7 +172,7 @@ export default function NotableArtistNetworkGraph({
         return {
           id,
           name: n.name || id,
-          group: "performer",
+          group: getNodeType(n) || "Performer",
           genre: genreFromSong || n.genre
         };
       }
@@ -209,27 +180,23 @@ export default function NotableArtistNetworkGraph({
       return {
         id,
         name: n.name || id,
-        group: "song",
+        group: getNodeType(n),
         genre: n.genre
       };
     }).filter(Boolean);
   }, [visibleNodeIds, nodeById, performerIds, filteredPerformerLinks, showOceanusFolk]);
 
   // Filter out links that are not in the graph
-  const influenceAndPerformerLinks = useMemo(() => {
-    return [
-      ...influenceLinks,
-      ...filteredPerformerLinks
-    ].filter(link =>
+  const influenceAndPerformerLinks = useMemo(() =>
+    [...influenceLinks, ...filteredPerformerLinks].filter(link =>
       graphNodes.find(n => n.id === link.source) &&
       graphNodes.find(n => n.id === link.target)
     ).map(link => ({
       source: link.source,
       target: link.target,
       edgeType: getEdgeType(link)
-    }));
-  }, [influenceLinks, filteredPerformerLinks, graphNodes]);
-
+    })), [influenceLinks, filteredPerformerLinks, graphNodes]);
+  
   // Set the force graph simulation parameters, -1 makes it tight but messy
   useEffect(() => {
     if (!fgRef.current) return;
@@ -242,13 +209,14 @@ export default function NotableArtistNetworkGraph({
   // Style legend
   const legendStyle = {
     display: 'flex',
-    gap: '10px',
+    gap: '1px',
     fontSize: 10,
     marginBottom: '10px',
-    flexWrap: 'wrap', 
-    backgroundColor: 'white', 
+    flexWrap: 'wrap',
+    backgroundColor: 'white',
     padding: '7px',
-    borderRadius: '5px'
+    borderRadius: '5px',
+    maxWidth: 680
   };
 
   // Legend box style
@@ -265,7 +233,7 @@ export default function NotableArtistNetworkGraph({
       <div style={{ maxWidth: 150, maxHeight: 200, overflowY: 'auto' }}>
         {/* List of artists/groups for selection */}
         <ArtistSelector
-          options={graphNodes.filter(n => n.group === 'performer').sort((a, b) => a.name.localeCompare(b.name))}
+          options={graphNodes.filter(n => n.group === 'Artist' || n.group === 'Group').sort((a, b) => a.name.localeCompare(b.name))}
           selectedIds={selectedArtistIds}
           onChange={(ids) => {
             setSelectedArtistIds(ids);
@@ -284,8 +252,10 @@ export default function NotableArtistNetworkGraph({
       {/* Render legend */}
       <div>
         <div style={legendStyle}>
-          <div><span style={{ ...box("#666"), clipPath: 'inset(0)' }} /> Song/Album</div>
-          <div><span style={{ ...box("#666"), borderRadius: '50%' }} /> Artist</div>
+          <div><span style={{ ...box("#666"), borderRadius: '50%' }} /> Artist (circle)</div>
+          <div><span style={{ ...box("#666"), clipPath: 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)' }} /> Group (star)</div>
+          <div><span style={{ ...box("#666"), clipPath: 'inset(0)' }} /> Album (square)</div>
+          <div><span style={{ ...box("#666"), clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)' }} /> Song (triangle)</div>
           {Object.entries(influenceTypeColors).map(([type, color]) => (
             <div key={type}><span style={{ ...box(color) }} /> {type}</div>
           ))}
@@ -297,45 +267,80 @@ export default function NotableArtistNetworkGraph({
           graphData={{ nodes: graphNodes, links: influenceAndPerformerLinks }}
           nodeLabel={node => `${node.name} (${node.genre || node.group})`}
           linkLabel={link => `Influence Type: ${link.edgeType}`}
-
           // Adjust links based on type influence or performer
-          linkWidth={link => {
-            const isInfluence = link.edgeType !== "PerformerOf";
-            const isSelected = selectedInfluenceTypes.has(link.edgeType);
-            return isInfluence ? (isSelected ? 4 : 1.5) : 1.7;
-          }}
-
+          linkWidth={link => selectedInfluenceTypes.has(link.edgeType) ? 4 : 1.5}
           // Color links based on influence type
           linkColor={link => {
-            const edgeType = link.edgeType;
-            const baseColor = influenceTypeColors[edgeType] || '#4d4d4d';
-            const isSelected = selectedInfluenceTypes.has(edgeType);
-            const opacity = isSelected ? 0.55 : 0.2;
-
-            const c = d3.color(baseColor);
-            if (c) {
-              c.opacity = opacity;
-              return c.formatRgb();
-            }
-            return baseColor;
+            const color = d3.color(influenceTypeColors[link.edgeType] || '#4d4d4d');
+            color.opacity = selectedInfluenceTypes.has(link.edgeType) ? 0.55 : 0.2;
+            return color.formatRgb();
           }}
           // Color nodes based on their genre
           nodeCanvasObject={(node, ctx, globalScale) => {
-            const label = node.name;
             const fontSize = (focusedNodeId === node.id ? 15 : 10) / globalScale;
             ctx.font = `${focusedNodeId === node.id ? "bold " : ""}${fontSize}px Sans-Serif`;
-
             ctx.fillStyle = genreColor(node.genre);
-            if (node.group === "song") {
-              ctx.fillRect(node.x - 5, node.y - 5, 10, 10);
-            } else {
+
+            const drawTriangle = () => {
               ctx.beginPath();
-              ctx.arc(node.x, node.y, 6, 0, 2 * Math.PI, false);
+              ctx.moveTo(node.x, node.y - 7);
+              ctx.lineTo(node.x - 6, node.y + 5);
+              ctx.lineTo(node.x + 6, node.y + 5);
+              ctx.closePath();
               ctx.fill();
+            };
+
+            const drawStar = () => {
+              const spikes = 5;
+              const outerRadius = 6;
+              const innerRadius = 3;
+              let rot = Math.PI / 2 * 3;
+              let x = node.x;
+              let y = node.y;
+              let step = Math.PI / spikes;
+
+              ctx.beginPath();
+              ctx.moveTo(x, y - outerRadius);
+              for (let i = 0; i < spikes; i++) {
+                x = node.x + Math.cos(rot) * outerRadius;
+                y = node.y + Math.sin(rot) * outerRadius;
+                ctx.lineTo(x, y);
+                rot += step;
+
+                x = node.x + Math.cos(rot) * innerRadius;
+                y = node.y + Math.sin(rot) * innerRadius;
+                ctx.lineTo(x, y);
+                rot += step;
+              }
+              ctx.lineTo(node.x, node.y - outerRadius);
+              ctx.closePath();
+              ctx.fill();
+            };
+            
+            // Select node shape after node type
+            switch (node.group) {
+              case "Artist":
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, 6, 0, 2 * Math.PI);
+                ctx.fill();
+                break;
+              case "MusicalGroup":
+                drawStar();
+                break;
+              case "Album":
+                ctx.fillRect(node.x - 5, node.y - 5, 10, 10);
+                break;
+              case "Song":
+                drawTriangle();
+                break;
+              default:
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, 4, 0, 2 * Math.PI);
+                ctx.fill();
             }
 
             ctx.fillStyle = "#4d4d4d";
-            ctx.fillText(label, node.x + 6, node.y + 3);
+            ctx.fillText(node.name, node.x + 6, node.y + 3);
           }}
           // Sizes of edges arrows
           linkDirectionalArrowLength={15}
@@ -344,9 +349,10 @@ export default function NotableArtistNetworkGraph({
           height={300}
         />
       </div>
+      
       {/* Checkbox to show/hide oceanus folk nodes */}
       <div style={{
-        marginLeft: -150,
+        marginLeft: -145,
         marginTop: 50,
         backgroundColor: 'white',
         padding: '5px',
@@ -354,16 +360,16 @@ export default function NotableArtistNetworkGraph({
         zIndex: 9999,
         position: 'relative'
       }}>
-      <label style={{ fontSize: 10, cursor: 'pointer' }}>
-        <input
-          type="checkbox"
-          checked={showOceanusFolk}
-          onChange={() => setOceanusFolkNodes(!showOceanusFolk)}
-          style={{ cursor: 'pointer' }}
-        />
-        {' '}Show Oceanus Folk
-      </label>
+        <label style={{ fontSize: 10, cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={showOceanusFolk}
+            onChange={() => setOceanusFolkNodes(!showOceanusFolk)}
+            style={{ cursor: 'pointer' }}
+          />
+          {' '}Show Oceanus Folk
+        </label>
+      </div>
     </div>
-  </div>
   );
 }

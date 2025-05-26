@@ -350,26 +350,7 @@ export default function Task2Main() {
             pearling
             minDistance={0}
           />
-          {/* Triangular year markers for specific years */}
-          <div style={{
-            position: 'absolute',
-            top: '-15px',
-            left: 0,
-            width: '100%',
-            height: '0px',
-            pointerEvents: 'none',
-          }}>
-          {[2023, 2026, 2028].map((year) => {
-          const positionPercent = ((year - minMaxYear[0]) / (minMaxYear[1] - minMaxYear[0])) * 100;
-          return (
-            <div
-              key={year}
-              className="slider-marker"
-              style={{ left: `${positionPercent}%`, transform: 'translateX(-50%)' }}
-            />
-          );
-        })}
-        </div>
+               
           <div style={{
             color: '#000',
             fontWeight: 'bold',
@@ -441,7 +422,7 @@ export default function Task2Main() {
         <h4 style={{ fontSize: '11px', fontWeight: 'bold' }}>Time Slider Info:</h4>
         <p style={{ fontSize: 10 }}> 
           Use the time slider to filter the network and the genre list based on source node songs/album
-          release dates. <br></br> The arrows indicate the career-defining years of Sailor Shift.
+          release dates. 
         </p>
       </div>
     </>
