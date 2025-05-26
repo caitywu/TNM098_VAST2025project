@@ -189,7 +189,7 @@ export default function GenreInfluenceMatrix({ nodes, links, yearRange, mode }) 
                         transition: 'opacity 0.2s',
                       }}
                       // Tooltip
-                      title={`${value} from ${rowGenre} to ${colGenre}`}
+                      title={`${colGenre} has taken ${value} influences from ${rowGenre}`}
                     />
                   );
                 })}
