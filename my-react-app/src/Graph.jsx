@@ -20,6 +20,7 @@ const EDGE_DESCRIPTIONS = {
 export default function Graph({
   graph,
   visibleEdgeTypes,
+  visibleNodeTypes,
   selectedNodeId,
   onNodeClick,
 }) {
@@ -30,20 +31,28 @@ export default function Graph({
   const width = 800,
     height = 600;
 
+  const filteredNodes = graph.nodes.filter((n) =>
+    visibleNodeTypes.has(n["Node Type"])
+  );
+  const nodeIds = new Set(filteredNodes.map((n) => n.id));
+
   // ─── 1) Memoisera linkData ─────────────────────────
   const linkData = useMemo(() => {
-    const filtered = graph.links.filter((l) =>
-      visibleEdgeTypes.has(l["Edge Type"])
-    );
-
-    return filtered.map((l) => ({
-      sourceId: l.source,
-      targetId: l.target,
-      edgeType: l["Edge Type"],
-      source: graph.nodes.find((n) => n.id === l.source),
-      target: graph.nodes.find((n) => n.id === l.target),
-    }));
-  }, [graph.links, graph.nodes, visibleEdgeTypes]);
+    return graph.links
+      .filter(
+        (l) =>
+          visibleEdgeTypes.has(l["Edge Type"]) &&
+          nodeIds.has(l.source) &&
+          nodeIds.has(l.target)
+      )
+      .map((l) => ({
+        sourceId: l.source,
+        targetId: l.target,
+        edgeType: l["Edge Type"],
+        source: filteredNodes.find((n) => n.id === l.source),
+        target: filteredNodes.find((n) => n.id === l.target),
+      }));
+  }, [graph.links, filteredNodes, visibleEdgeTypes, nodeIds]);
 
   // ─── 2) Memoisera edgeGroups ─────────────────────────
   const edgeGroups = useMemo(() => {
@@ -232,7 +241,7 @@ export default function Graph({
       .append("g")
       .attr("class", "nodes")
       .selectAll("path.node")
-      .data(graph.nodes, (d) => d.id)
+      .data(filteredNodes, (d) => d.id)
       .join("path")
       .attr("class", "node")
       .attr("d", symGen)
@@ -279,7 +288,7 @@ export default function Graph({
       .append("g")
       .attr("class", "labels")
       .selectAll("text.label")
-      .data(graph.nodes, (d) => d.id)
+      .data(filteredNodes, (d) => d.id)
       .join("text")
       .attr("class", "label")
       .text((d) => d.name || d.stage_name || d.id)
@@ -290,27 +299,6 @@ export default function Graph({
         d.id === selectedNodeId ? "bold" : "normal"
       );
   }, [linkData, graph.nodes, selectedNodeId, onNodeClick]);
-
-  // ─── 7) Recenter vid ny selectedNode ─────────────────
-  // useEffect(() => {
-  //   if (!selectedNodeId) return;
-  //   const node = graph.nodes.find((n) => n.id === selectedNodeId);
-  //   if (!node) return;
-
-  //   // hämta aktuell skala
-  //   //const cur = d3.zoomTransform(svgRef.current);
-  //   // räkna ut pan så nod hamnar i mitten utan att skala om
-  //   const panX = width / 2 - node.x;
-  //   const panY = height / 2 - node.y;
-
-  //   d3.select(svgRef.current)
-  //     .transition()
-  //     .duration(750)
-  //     .call(
-  //       zoomRef.current.transform,
-  //       d3.zoomIdentity.translate(panX, panY).scale(cur.k)
-  //     );
-  // }, [selectedNodeId]);
 
   return (
     <svg

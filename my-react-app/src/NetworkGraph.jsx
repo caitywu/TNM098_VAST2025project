@@ -74,10 +74,13 @@ export default function NetworkGraph() {
         }));
 
         setData({ nodes, links });
-                
-        
+
         setArtists(enrichedPersons); // <- use enriched data
-        if (enrichedPersons.length) setIds([enrichedPersons[0].id]);
+        const sailor = nodes.find((n) => n.name === "Sailor Shift");
+        if (sailor) {
+          setIds([sailor.id]);
+          setSelectedNode(sailor);
+        }
       });
   }, []);
 
@@ -135,6 +138,25 @@ export default function NetworkGraph() {
     new Set(allEdgeTypes)
   );
 
+  const allNodeTypes = [
+    "Person",
+    "Song",
+    "Album",
+    "MusicalGroup",
+    "RecordLabel",
+  ];
+  const [visibleNodeTypes, setVisibleNodeTypes] = useState(
+    new Set(allNodeTypes)
+  );
+
+  function toggleNodeType(type) {
+    setVisibleNodeTypes((prev) => {
+      const s = new Set(prev);
+      s.has(type) ? s.delete(type) : s.add(type);
+      return s;
+    });
+  }
+
   function toggleEdgeType(type) {
     setVisibleEdgeTypes((prev) => {
       const newSet = new Set(prev);
@@ -180,7 +202,6 @@ export default function NetworkGraph() {
         display: "flex",
         flexDirection: "column",
         height: "100vh",
-        background: "#7f7a78",
       }}
     >
       {/* ─── TOP ROW: selector, network, toolbar ─── */}
@@ -223,14 +244,35 @@ export default function NetworkGraph() {
             selectedArtistIds={selectedArtistIds}
             selectedNodeId={debouncedArtist}
             visibleEdgeTypes={visibleEdgeTypes}
+            visibleNodeTypes={visibleNodeTypes}
             onNodeClick={handleNodeClick}
           />
         </div>
 
         <div
           style={{
-            flex: "0 0 15%",
-            background: "#888",
+            flex: "0 0 10%",
+            color: "#fff",
+            padding: "1rem",
+          }}
+        >
+          <fieldset style={{ border: "0.5px solid #ccc", padding: "0.5rem" }}>
+            <legend>Show nodes</legend>
+            {allNodeTypes.map((t) => (
+              <label key={t} style={{ display: "block", fontSize: "0.7rem" }}>
+                <input
+                  type="checkbox"
+                  checked={visibleNodeTypes.has(t)}
+                  onChange={() => toggleNodeType(t)}
+                />{" "}
+                {t}
+              </label>
+            ))}
+          </fieldset>
+        </div>
+        <div
+          style={{
+            flex: "0 0 10%",
             color: "#fff",
             padding: "1rem",
           }}
@@ -246,13 +288,14 @@ export default function NetworkGraph() {
       </div>
 
       {/* ─── BOTTOM ROW: detail view 1 & 2 ─── */}
-      <div style={{ display: "flex", height: 400 }}>
+      <div style={{ display: "flex", height: 800 }}>
         <div
           style={{
-            flex: 1,
+            flex: 1.5,
             borderRight: "2px solid #fff",
             overflow: "auto",
             padding: "0.5rem",
+            backgroundColor: "white",
           }}
         >
           {/* <InfluenceGraph
@@ -260,10 +303,17 @@ export default function NetworkGraph() {
             selectedId={debouncedArtist}
             onNodeClick={handleNodeClick}
           /> */}
-          <TemporalPlot />
+          <TemporalPlot onNodeClick={handleNodeClick} />
         </div>
 
-        <div style={{ flex: 1, overflow: "auto", padding: "0.5rem" }}>
+        <div
+          style={{
+            flex: 1,
+            overflow: "auto",
+            padding: "0.5rem",
+            background: "#888",
+          }}
+        >
           <CombinedInfo
             data={data}
             selectedNode={selectedNode}
