@@ -210,9 +210,10 @@ export default function NetworkGraph() {
           display: "flex",
           flex: 1,
           borderBottom: "2px solid #fff",
+          minHeight: 1200,
         }}
       >
-        <div style={{ flex: "0 0 15%", padding: "1rem" }}>
+        <div style={{ flex: "0 0 15%", padding: "1rem" , backgroundColor: "transparent"}}>
           <ArtistSelector
             nodes={data?.nodes || []}
             links={data?.links || []}

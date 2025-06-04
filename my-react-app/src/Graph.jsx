@@ -83,7 +83,12 @@ export default function Graph({
         .append("div")
         .attr("class", "edge-tooltip")
         .style("position", "absolute")
-        .style("visibility", "hidden");
+        .style("visibility", "hidden")
+        .style("background", "white")           // white box
+.style("border", "1px solid #ccc")      // subtle border
+.style("padding", "8px")                // spacing
+.style("border-radius", "4px")          // rounded corners
+.style("box-shadow", "0px 2px 6px rgba(0,0,0,0.2)"); // soft shadow;
     }
   }, []);
 
@@ -190,6 +195,7 @@ export default function Graph({
 
     // 6b) Huvudcontainer
     const container = svg.append("g").attr("class", "content");
+    let pinned = false;
 
     // 6c) Edges
     container
@@ -222,7 +228,42 @@ export default function Graph({
           .style("top", `${e.pageY + 8}px`)
           .style("left", `${e.pageX + 8}px`)
       )
-      .on("mouseout", () => tooltipRef.current.style("visibility", "hidden"));
+      .on("mouseout", () => {
+        if (!pinned) {
+          tooltipRef.current.style("visibility", "hidden");
+        }})
+      .on("click", (e, d) => {
+  const src = d.source.name || d.source.stage_name || d.source.id;
+  const tgt = d.target.name || d.target.stage_name || d.target.id;
+  const desc = EDGE_DESCRIPTIONS[d.edgeType] || ((s, t) => `${d.edgeType}: ${s}→${t}`);
+  const html = desc(src, tgt);
+
+  // Create a new pinned tooltip div
+  const pinnedTooltip = d3
+    .select("body")
+    .append("div")
+    .attr("class", "edge-tooltip pinned-tooltip")
+    .style("position", "absolute")
+    .style("top", `${e.pageY + 8}px`)
+    .style("left", `${e.pageX + 8}px`)
+    .style("background", "white")
+    .style("border", "1px solid #ccc")
+    .style("padding", "8px")
+    .style("border-radius", "4px")
+    .style("box-shadow", "0px 2px 6px rgba(0,0,0,0.2)")
+    .html(`
+  <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+    <span>${html}</span>
+    <button class="close-tooltip" style="background: none; border: none; font-size: 14px; cursor: pointer; padding: 0; margin: 0;">✖</button>
+  </div>
+`);
+
+  // Add close button behavior
+  pinnedTooltip.select(".close-tooltip").on("click", () => {
+    pinnedTooltip.remove();
+  });
+});
+
 
     // 6d) Nodes
     const shapeMap = {
@@ -299,6 +340,7 @@ export default function Graph({
         d.id === selectedNodeId ? "bold" : "normal"
       );
   }, [linkData, graph.nodes, selectedNodeId, onNodeClick]);
+
 
   return (
     <svg
